@@ -129,6 +129,12 @@ tr:last-child td{border-bottom:none;}
   <button class="nav-tab" onclick="showPage('weekly',this)">每週 KPI</button>
   <button class="nav-tab" onclick="showPage('quarter',this)">季平均</button>
   <button class="nav-tab" onclick="showPage('trend',this)">歷週趨勢</button>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;padding:0 0.5rem;">
+    <button class="bsm bp" onclick="exportBackup()" style="font-size:12px;">⬇ 匯出備份</button>
+    <label class="bsm" style="cursor:pointer;padding:5px 12px;border:.5px solid rgba(0,0,0,.2);border-radius:8px;font-size:12px;background:#fff;">
+      ⬆ 匯入還原<input type="file" id="import-file" accept=".json" style="display:none;" onchange="importBackup(event)">
+    </label>
+  </div>
 </nav>
 
 <!-- ══════════════════════════════
@@ -1243,6 +1249,75 @@ function renderQuarter(){
       </tr>`;
     }).join('');
   }
+}
+
+
+// ══════ 備份 / 還原 ══════
+function exportBackup(){
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    kpi_daily4:  JSON.parse(localStorage.getItem('kpi_daily4')  || '[]'),
+    kpi_sat2:    JSON.parse(localStorage.getItem('kpi_sat2')    || 'null'),
+    kpi_hist4:   JSON.parse(localStorage.getItem('kpi_hist4')   || '[]'),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `KPI備份_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importBackup(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if(!data.version) throw new Error('格式不符');
+
+      const daily  = data.kpi_daily4 || [];
+      const sat    = data.kpi_sat2   || null;
+      const hist   = data.kpi_hist4  || [];
+
+      // Merge daily: existing dates win, new dates added
+      const existing = JSON.parse(localStorage.getItem('kpi_daily4') || '[]');
+      const existingDates = new Set(existing.map(r=>r.date));
+      const merged = [...existing];
+      daily.forEach(r => { if(!existingDates.has(r.date)) merged.push(r); });
+      merged.sort((a,b)=>a.date.localeCompare(b.date));
+
+      // Merge KPI history: existing weeks win
+      const existingHist = JSON.parse(localStorage.getItem('kpi_hist4') || '[]');
+      const existingWks  = new Set(existingHist.map(h=>h.wk));
+      const mergedHist   = [...existingHist];
+      hist.forEach(h => { if(!existingWks.has(h.wk)) mergedHist.push(h); });
+      mergedHist.sort((a,b)=>a.wk.localeCompare(b.wk));
+
+      // Sat: only import if nothing exists yet
+      const existingSat = localStorage.getItem('kpi_sat2');
+      if(!existingSat && sat) localStorage.setItem('kpi_sat2', JSON.stringify(sat));
+
+      localStorage.setItem('kpi_daily4', JSON.stringify(merged));
+      localStorage.setItem('kpi_hist4',  JSON.stringify(mergedHist));
+
+      const added = merged.length - existing.length;
+      const addedW = mergedHist.length - existingHist.length;
+      alert(`✅ 匯入完成！\n新增每日記錄：${added} 筆\n新增週KPI記錄：${addedW} 筆\n（已存在的資料不會被覆蓋）`);
+
+      // Refresh current page
+      renderReply(); renderOrder(); renderQuarter(); renderTrend();
+      loadSatInputs(); calcSat();
+      populateWeekSel(); renderKPI();
+    } catch(err) {
+      alert('匯入失敗：檔案格式不正確，請使用本工具匯出的 JSON 備份檔。');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 // ══════ Init ══════
