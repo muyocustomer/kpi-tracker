@@ -5,6 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KPI 週報計算工具</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAMDCz-ad9RmK_KXPgIRV1-phav4CdGskU",
+  authDomain: "kpi-tracker-3c23f.firebaseapp.com",
+  projectId: "kpi-tracker-3c23f",
+  storageBucket: "kpi-tracker-3c23f.firebasestorage.app",
+  messagingSenderId: "38204199209",
+  appId: "1:38204199209:web:84df71e670a7d0d0ce2738"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── Firebase CRUD helpers ──
+// daily4: collection of docs keyed by date "2025-04-01"
+// sat: single doc "data" in collection "sat"
+// hist4: collection of docs keyed by wk "2025-W17"
+
+async function fbGetDaily(){
+  const snap = await getDocs(collection(db,'daily4'));
+  const arr = [];
+  snap.forEach(d => arr.push(d.data()));
+  arr.sort((a,b)=>a.date.localeCompare(b.date));
+  return arr;
+}
+async function fbSetDaily(rec){
+  await setDoc(doc(db,'daily4',rec.date), rec);
+}
+async function fbDeleteDaily(date){
+  await deleteDoc(doc(db,'daily4',date));
+}
+async function fbGetSat(){
+  const d = await getDoc(doc(db,'sat','data'));
+  return d.exists() ? d.data() : null;
+}
+async function fbSetSat(obj){
+  await setDoc(doc(db,'sat','data'), obj);
+}
+async function fbGetHist(){
+  const snap = await getDocs(collection(db,'hist4'));
+  const arr = [];
+  snap.forEach(d => arr.push(d.data()));
+  arr.sort((a,b)=>a.wk.localeCompare(b.wk));
+  return arr;
+}
+async function fbSetHist(rec){
+  await setDoc(doc(db,'hist4',rec.wk), rec);
+}
+async function fbDeleteHist(wk){
+  await deleteDoc(doc(db,'hist4',wk));
+}
+
+// ── Expose to global scope for existing JS ──
+window.fbGetDaily    = fbGetDaily;
+window.fbSetDaily    = fbSetDaily;
+window.fbDeleteDaily = fbDeleteDaily;
+window.fbGetSat      = fbGetSat;
+window.fbSetSat      = fbSetSat;
+window.fbGetHist     = fbGetHist;
+window.fbSetHist     = fbSetHist;
+
+// Signal that Firebase is ready
+window.fbReady = true;
+document.dispatchEvent(new Event('fbReady'));
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Microsoft JhengHei',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh;}
@@ -683,36 +751,35 @@ function updateReplyPreview(){
   document.getElementById('prev-reply-avg').textContent=avg!==null?avg.toFixed(2)+'%':'—';
 }
 
-function saveReplyRecord(){
+async function saveReplyRecord(){
   const date=document.getElementById('d-date').value;
   if(!date){alert('請選擇日期');return;}
   const rrA=getVal('rr-A'),rrB=getVal('rr-B'),rrC=getVal('rr-C'),rrD=getVal('rr-D');
   if(rrA===null&&rrB===null&&rrC===null&&rrD===null){alert('請至少輸入一個帳號的回覆率');return;}
-  const arr=LD();
-  const idx=arr.findIndex(r=>r.date===date);
-  const existing=idx>=0?arr[idx]:{date,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0};
+  const existing=_dailyCache.find(r=>r.date===date)||{date,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0};
   const rec={...existing,date,rrA,rrB,rrC,rrD};
-  if(idx>=0)arr[idx]=rec; else arr.push(rec);
-  arr.sort((a,b)=>a.date.localeCompare(b.date));
-  SD(arr);
+  showSaving(true);
+  await window.fbSetDaily(rec);
+  await loadAllData();
+  showSaving(false);
   ['rr-A','rr-B','rr-C','rr-D'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prev-reply-avg').textContent='—';
   renderReply();
 }
 
-function deleteReplyRecord(date){
+async function deleteReplyRecord(date){
   if(!confirm('確定刪除 '+date+' 的回覆率記錄？'))return;
-  const arr=LD();
-  const idx=arr.findIndex(r=>r.date===date);
-  if(idx<0)return;
-  const r=arr[idx];
-  // if order data exists keep record, just clear rr fields
+  const r=_dailyCache.find(rec=>rec.date===date);
+  if(!r)return;
+  showSaving(true);
   if((r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)>0){
-    arr[idx]={...r,rrA:null,rrB:null,rrC:null,rrD:null};
+    await window.fbSetDaily({...r,rrA:null,rrB:null,rrC:null,rrD:null});
   } else {
-    arr.splice(idx,1);
+    await window.fbDeleteDaily(date);
   }
-  SD(arr);renderReply();
+  await loadAllData();
+  showSaving(false);
+  renderReply();
 }
 
 function renderReply(){
@@ -778,18 +845,19 @@ function saveOrderRecord(){
   renderOrder();
 }
 
-function deleteOrderRecord(date){
+async function deleteOrderRecord(date){
   if(!confirm('確定刪除 '+date+' 的轉單率記錄？'))return;
-  const arr=LD();
-  const idx=arr.findIndex(r=>r.date===date);
-  if(idx<0)return;
-  const r=arr[idx];
+  const r=_dailyCache.find(rec=>rec.date===date);
+  if(!r)return;
+  showSaving(true);
   if(r.rrA!==null||r.rrB!==null||r.rrC!==null||r.rrD!==null){
-    arr[idx]={...r,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0};
+    await window.fbSetDaily({...r,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0});
   } else {
-    arr.splice(idx,1);
+    await window.fbDeleteDaily(date);
   }
-  SD(arr);renderOrder();
+  await loadAllData();
+  showSaving(false);
+  renderOrder();
 }
 
 function renderOrder(){
@@ -835,7 +903,7 @@ function changeWeek(page,target){
 
 // ══════ PAGE 2: Satisfaction ══════
 function loadSatInputs(){
-  const saved=LSat();
+  const saved=_satCache;
   if(!saved)return;
   ACCTS.forEach(a=>{
     for(let s=1;s<=5;s++){
@@ -876,13 +944,16 @@ function getSatOverallPct(){
   return grandTotal>0?grandPos/grandTotal*100:null;
 }
 
-function saveSatData(){
+async function saveSatData(){
   const obj={};
   ACCTS.forEach(a=>{
     obj[a]={};
     for(let s=1;s<=5;s++) obj[a][s]=parseInt(document.getElementById('s'+a+s).value)||0;
   });
-  SSat(obj);
+  showSaving(true);
+  await window.fbSetSat(obj);
+  _satCache = obj;
+  showSaving(false);
   alert('✅ 滿意度資料已儲存！');
 }
 
@@ -1077,13 +1148,23 @@ function renderTrend(){
   ].map(i=>`<span class="legend-item"><span class="legend-line" style="${i.d?'border-top:2px dashed '+i.c+';background:none':'background:'+i.c}"></span>${i.l}</span>`).join('');
 }
 
-function deleteTrendRow(idx){
+async function deleteTrendRow(idx){
   if(!confirm('確定刪除這週的KPI記錄？'))return;
-  const arr=LH();arr.splice(idx,1);SH(arr);renderTrend();
+  const wk=_histCache[idx]?.wk;
+  if(!wk)return;
+  showSaving(true);
+  await window.fbDeleteHist(wk);
+  await loadAllData();
+  showSaving(false);
+  renderTrend();
 }
-function clearAllKPI(){
+async function clearAllKPI(){
   if(!confirm('確定清除全部歷週KPI記錄？'))return;
-  SH([]);renderTrend();
+  showSaving(true);
+  for(const h of _histCache) await window.fbDeleteHist(h.wk);
+  await loadAllData();
+  showSaving(false);
+  renderTrend();
 }
 
 
@@ -1257,9 +1338,9 @@ function exportBackup(){
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),
-    kpi_daily4:  JSON.parse(localStorage.getItem('kpi_daily4')  || '[]'),
-    kpi_sat2:    JSON.parse(localStorage.getItem('kpi_sat2')    || 'null'),
-    kpi_hist4:   JSON.parse(localStorage.getItem('kpi_hist4')   || '[]'),
+    kpi_daily4: _dailyCache,
+    kpi_sat2:   _satCache,
+    kpi_hist4:  _histCache,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -1270,49 +1351,36 @@ function exportBackup(){
   URL.revokeObjectURL(a.href);
 }
 
-function importBackup(event){
+async function importBackup(event){
   const file = event.target.files[0];
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
       if(!data.version) throw new Error('格式不符');
+      const daily = data.kpi_daily4 || [];
+      const sat   = data.kpi_sat2   || null;
+      const hist  = data.kpi_hist4  || [];
 
-      const daily  = data.kpi_daily4 || [];
-      const sat    = data.kpi_sat2   || null;
-      const hist   = data.kpi_hist4  || [];
-
-      // Merge daily: existing dates win, new dates added
-      const existing = JSON.parse(localStorage.getItem('kpi_daily4') || '[]');
-      const existingDates = new Set(existing.map(r=>r.date));
-      const merged = [...existing];
-      daily.forEach(r => { if(!existingDates.has(r.date)) merged.push(r); });
-      merged.sort((a,b)=>a.date.localeCompare(b.date));
-
-      // Merge KPI history: existing weeks win
-      const existingHist = JSON.parse(localStorage.getItem('kpi_hist4') || '[]');
-      const existingWks  = new Set(existingHist.map(h=>h.wk));
-      const mergedHist   = [...existingHist];
-      hist.forEach(h => { if(!existingWks.has(h.wk)) mergedHist.push(h); });
-      mergedHist.sort((a,b)=>a.wk.localeCompare(b.wk));
-
-      // Sat: only import if nothing exists yet
-      const existingSat = localStorage.getItem('kpi_sat2');
-      if(!existingSat && sat) localStorage.setItem('kpi_sat2', JSON.stringify(sat));
-
-      localStorage.setItem('kpi_daily4', JSON.stringify(merged));
-      localStorage.setItem('kpi_hist4',  JSON.stringify(mergedHist));
-
-      const added = merged.length - existing.length;
-      const addedW = mergedHist.length - existingHist.length;
-      alert(`✅ 匯入完成！\n新增每日記錄：${added} 筆\n新增週KPI記錄：${addedW} 筆\n（已存在的資料不會被覆蓋）`);
-
-      // Refresh current page
+      showSaving(true);
+      const existingDates = new Set(_dailyCache.map(r=>r.date));
+      const existingWks   = new Set(_histCache.map(h=>h.wk));
+      let addedD=0, addedH=0;
+      for(const r of daily){
+        if(!existingDates.has(r.date)){ await window.fbSetDaily(r); addedD++; }
+      }
+      for(const h of hist){
+        if(!existingWks.has(h.wk)){ await window.fbSetHist(h); addedH++; }
+      }
+      if(sat && !_satCache) await window.fbSetSat(sat);
+      await loadAllData();
+      showSaving(false);
+      alert(`✅ 匯入完成！\n新增每日記錄：${addedD} 筆\n新增週KPI記錄：${addedH} 筆\n（已存在的資料不會被覆蓋）`);
       renderReply(); renderOrder(); renderQuarter(); renderTrend();
-      loadSatInputs(); calcSat();
-      populateWeekSel(); renderKPI();
+      loadSatInputs(); calcSat(); populateWeekSel(); renderKPI();
     } catch(err) {
+      showSaving(false);
       alert('匯入失敗：檔案格式不正確，請使用本工具匯出的 JSON 備份檔。');
     }
     event.target.value = '';
@@ -1321,12 +1389,36 @@ function importBackup(event){
 }
 
 // ══════ Init ══════
-initDate('d-date');
-initDate('d-date2');
-renderReply();
-loadSatInputs();
-calcSat();
-renderQuarter();
+function showSaving(on){
+  let el = document.getElementById('saving-indicator');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'saving-indicator';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#185FA5;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;';
+    document.body.appendChild(el);
+  }
+  el.textContent = on ? '☁️ 儲存中...' : '✅ 已同步';
+  el.style.opacity = '1';
+  if(!on) setTimeout(()=>el.style.opacity='0', 1500);
+}
+
+async function init(){
+  showSaving(true);
+  await loadAllData();
+  showSaving(false);
+  initDate('d-date');
+  initDate('d-date2');
+  loadSatInputs();
+  calcSat();
+  renderReply();
+  renderOrder();
+  renderQuarter();
+  populateWeekSel();
+}
+
+// Wait for Firebase to be ready then init
+if(window.fbReady){ init(); }
+else { document.addEventListener('fbReady', init); }
 </script>
 </body>
 </html>
