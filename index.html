@@ -71,7 +71,7 @@ window.fbSetHist     = fbSetHist;
 
 // Signal that Firebase is ready
 window.fbReady = true;
-document.dispatchEvent(new Event('fbReady'));
+window.fbReadyResolve && window.fbReadyResolve();
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -1417,8 +1417,13 @@ async function init(){
 }
 
 // Wait for Firebase to be ready then init
-if(window.fbReady){ init(); }
-else { document.addEventListener('fbReady', init); }
+function waitForFb(){
+  return new Promise(resolve => {
+    if(window.fbReady){ resolve(); }
+    else { window.fbReadyResolve = resolve; }
+  });
+}
+waitForFb().then(init);
 </script>
 </body>
 </html>
