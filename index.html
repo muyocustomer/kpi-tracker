@@ -837,20 +837,19 @@ function updateOrderPreview(){
   document.getElementById('prev-order-total').textContent=totRep>0?(totBuy/totRep*100).toFixed(2)+'%':'—';
 }
 
-function saveOrderRecord(){
+async function saveOrderRecord(){
   const date=document.getElementById('d-date2').value;
   if(!date){alert('請選擇日期');return;}
   const repA=getVal('d-repA')||0,repB=getVal('d-repB')||0,repC=getVal('d-repC')||0,repD=getVal('d-repD')||0;
   const buyA=getVal('d-buyA')||0,buyB=getVal('d-buyB')||0,buyC=getVal('d-buyC')||0,buyD=getVal('d-buyD')||0;
   const salA=getVal('d-salA')||0,salB=getVal('d-salB')||0,salC=getVal('d-salC')||0,salD=getVal('d-salD')||0;
   if((repA+repB+repC+repD)===0&&(salA+salB+salC+salD)===0){alert('請至少輸入一個帳號的數字');return;}
-  const arr=LD();
-  const idx=arr.findIndex(r=>r.date===date);
-  const existing=idx>=0?arr[idx]:{date,rrA:null,rrB:null,rrC:null,rrD:null};
+  const existing=window._dailyCache.find(r=>r.date===date)||{date,rrA:null,rrB:null,rrC:null,rrD:null};
   const rec={...existing,date,repA,repB,repC,repD,buyA,buyB,buyC,buyD,salA,salB,salC,salD};
-  if(idx>=0)arr[idx]=rec; else arr.push(rec);
-  arr.sort((a,b)=>a.date.localeCompare(b.date));
-  SD(arr);
+  showSaving(true);
+  await window.fbSetDaily(rec);
+  await window.loadAllData();
+  showSaving(false);
   ['d-repA','d-repB','d-repC','d-repD','d-buyA','d-buyB','d-buyC','d-buyD','d-salA','d-salB','d-salC','d-salD'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prev-order-total').textContent='—';
   ACCTS.forEach(a=>document.getElementById('prev-or'+a).textContent='—');
