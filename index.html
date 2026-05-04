@@ -690,8 +690,10 @@ tr:last-child td{border-bottom:none;}
 
 <script>
 // ══════ Storage ══════
-// Storage handled by Firebase (see module script above)
-// LD/LH/LSat defined below using window cache
+// Sync readers - read from window cache populated by Firebase
+const LD   = () => window._dailyCache || [];
+const LH   = () => window._histCache  || [];
+const LSat = () => window._satCache;
 
 const ACCTS = ['A','B','C','D'];
 
