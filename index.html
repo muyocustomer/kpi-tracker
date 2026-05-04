@@ -690,12 +690,8 @@ tr:last-child td{border-bottom:none;}
 
 <script>
 // ══════ Storage ══════
-const LD  = () => JSON.parse(localStorage.getItem('kpi_daily4')||'[]');
-const SD  = a  => localStorage.setItem('kpi_daily4', JSON.stringify(a));
-const LSat= () => JSON.parse(localStorage.getItem('kpi_sat2')||'null');
-const SSat= o  => localStorage.setItem('kpi_sat2', JSON.stringify(o));
-const LH  = () => JSON.parse(localStorage.getItem('kpi_hist4')||'[]');
-const SH  = a  => localStorage.setItem('kpi_hist4', JSON.stringify(a));
+// Storage handled by Firebase (see module script above)
+// LD/LH/LSat defined below using window cache
 
 const ACCTS = ['A','B','C','D'];
 
@@ -735,7 +731,8 @@ function showPage(name,btn){
 }
 
 // ══════ PAGE 1&2: Reply & Order ══════
-let weekOffsetReply=0, weekOffsetOrder=0;
+window.weekOffsetReply=0;
+window.weekOffsetOrder=0;
 
 function getVal(id){const el=document.getElementById(id);if(!el)return null;const v=parseFloat(el.value);return isNaN(v)?null:v;}
 
@@ -796,9 +793,9 @@ async function deleteReplyRecord(date){
 
 function renderReply(){
   initDate('d-date');
-  const mon=getMondayOf(weekOffsetReply);
+  const mon=getMondayOf(window.weekOffsetReply);
   document.getElementById('reply-week-label').textContent=weekLabel(mon);
-  const week=getWeekRecs(weekOffsetReply);
+  const week=getWeekRecs(window.weekOffsetReply);
   week.sort((a,b)=>a.date.localeCompare(b.date));
   ACCTS.forEach(a=>{
     const avg=acctAvg(week,a);
@@ -873,9 +870,9 @@ async function deleteOrderRecord(date){
 
 function renderOrder(){
   initDate('d-date2');
-  const mon=getMondayOf(weekOffsetOrder);
+  const mon=getMondayOf(window.weekOffsetOrder);
   document.getElementById('order-week-label').textContent=weekLabel(mon);
-  const week=getWeekRecs(weekOffsetOrder);
+  const week=getWeekRecs(window.weekOffsetOrder);
   week.sort((a,b)=>a.date.localeCompare(b.date));
   const totRep=week.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
   const totBuy=week.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
@@ -906,15 +903,15 @@ function renderOrder(){
 }
 
 function changeWeek(page,target){
-  if(page==='reply') weekOffsetReply=(target===0)?0:weekOffsetReply+target;
-  if(page==='order') weekOffsetOrder=(target===0)?0:weekOffsetOrder+target;
+  if(page==='reply') window.weekOffsetReply=(target===0)?0:window.weekOffsetReply+target;
+  if(page==='order') window.weekOffsetOrder=(target===0)?0:window.weekOffsetOrder+target;
   if(page==='reply') renderReply();
   if(page==='order') renderOrder();
 }
 
 // ══════ PAGE 2: Satisfaction ══════
 function loadSatInputs(){
-  const saved=_satCache;
+  const saved=window._satCache;
   if(!saved)return;
   ACCTS.forEach(a=>{
     for(let s=1;s<=5;s++){
@@ -1081,7 +1078,7 @@ function renderKPI(){
   }
 }
 
-function saveWeeklyKPI(){
+async function saveWeeklyKPI(){
   const monStr=document.getElementById('kpi-week-sel').value;
   if(!monStr){alert('請選擇週次');return;}
   const week=getWeekDataByMon(monStr);
@@ -1100,14 +1097,13 @@ function saveWeeklyKPI(){
   const r=calcScores(replyPct,satPct,orderPct,retPct);
   if(r.parts.length===0){alert('尚無任何指標數值，無法儲存');return;}
   const mon=new Date(monStr+'T00:00:00');
-  const arr=LH();
   const wk=weekKey(mon);
   const label=wk+'（'+weekLabel(mon)+'）';
-  const idx=arr.findIndex(h=>h.wk===wk);
   const entry={wk,monStr,label,s1:r.s1,s2:r.s2,s3:r.s3,s4:r.s4,weighted:r.weighted};
-  if(idx>=0)arr[idx]=entry; else arr.push(entry);
-  arr.sort((a,b)=>a.wk.localeCompare(b.wk));
-  SH(arr);
+  showSaving(true);
+  await window.fbSetHist(entry);
+  await window.loadAllData();
+  showSaving(false);
   alert('✅ 本週KPI已儲存！');
 }
 
@@ -1349,9 +1345,9 @@ function exportBackup(){
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),
-    kpi_daily4: _dailyCache,
-    kpi_sat2:   _satCache,
-    kpi_hist4:  _histCache,
+    kpi_daily4: window._dailyCache,
+    kpi_sat2:   window._satCache,
+    kpi_hist4:  window._histCache,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
