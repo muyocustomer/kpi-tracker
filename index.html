@@ -60,7 +60,7 @@ async function fbDeleteHist(wk){
   await deleteDoc(doc(db,'hist4',wk));
 }
 
-// ── Expose to global scope for existing JS ──
+// ── Expose everything to global scope ──
 window.fbGetDaily    = fbGetDaily;
 window.fbSetDaily    = fbSetDaily;
 window.fbDeleteDaily = fbDeleteDaily;
@@ -68,6 +68,18 @@ window.fbGetSat      = fbGetSat;
 window.fbSetSat      = fbSetSat;
 window.fbGetHist     = fbGetHist;
 window.fbSetHist     = fbSetHist;
+
+// Cache variables exposed globally
+window._dailyCache = [];
+window._histCache  = [];
+window._satCache   = null;
+
+// loadAllData exposed globally
+window.loadAllData = async function(){
+  window._dailyCache = await fbGetDaily();
+  window._histCache  = await fbGetHist();
+  window._satCache   = await fbGetSat();
+};
 
 // Signal that Firebase is ready
 window.fbReady = true;
@@ -756,11 +768,11 @@ async function saveReplyRecord(){
   if(!date){alert('請選擇日期');return;}
   const rrA=getVal('rr-A'),rrB=getVal('rr-B'),rrC=getVal('rr-C'),rrD=getVal('rr-D');
   if(rrA===null&&rrB===null&&rrC===null&&rrD===null){alert('請至少輸入一個帳號的回覆率');return;}
-  const existing=_dailyCache.find(r=>r.date===date)||{date,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0};
+  const existing=window._dailyCache.find(r=>r.date===date)||{date,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0};
   const rec={...existing,date,rrA,rrB,rrC,rrD};
   showSaving(true);
   await window.fbSetDaily(rec);
-  await loadAllData();
+  await window.loadAllData();
   showSaving(false);
   ['rr-A','rr-B','rr-C','rr-D'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prev-reply-avg').textContent='—';
@@ -769,7 +781,7 @@ async function saveReplyRecord(){
 
 async function deleteReplyRecord(date){
   if(!confirm('確定刪除 '+date+' 的回覆率記錄？'))return;
-  const r=_dailyCache.find(rec=>rec.date===date);
+  const r=window._dailyCache.find(rec=>rec.date===date);
   if(!r)return;
   showSaving(true);
   if((r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)>0){
@@ -777,7 +789,7 @@ async function deleteReplyRecord(date){
   } else {
     await window.fbDeleteDaily(date);
   }
-  await loadAllData();
+  await window.loadAllData();
   showSaving(false);
   renderReply();
 }
@@ -847,7 +859,7 @@ function saveOrderRecord(){
 
 async function deleteOrderRecord(date){
   if(!confirm('確定刪除 '+date+' 的轉單率記錄？'))return;
-  const r=_dailyCache.find(rec=>rec.date===date);
+  const r=window._dailyCache.find(rec=>rec.date===date);
   if(!r)return;
   showSaving(true);
   if(r.rrA!==null||r.rrB!==null||r.rrC!==null||r.rrD!==null){
@@ -855,7 +867,7 @@ async function deleteOrderRecord(date){
   } else {
     await window.fbDeleteDaily(date);
   }
-  await loadAllData();
+  await window.loadAllData();
   showSaving(false);
   renderOrder();
 }
@@ -952,7 +964,7 @@ async function saveSatData(){
   });
   showSaving(true);
   await window.fbSetSat(obj);
-  _satCache = obj;
+  window._satCache = obj;
   showSaving(false);
   alert('✅ 滿意度資料已儲存！');
 }
@@ -1150,19 +1162,19 @@ function renderTrend(){
 
 async function deleteTrendRow(idx){
   if(!confirm('確定刪除這週的KPI記錄？'))return;
-  const wk=_histCache[idx]?.wk;
+  const wk=window._histCache[idx]?.wk;
   if(!wk)return;
   showSaving(true);
   await window.fbDeleteHist(wk);
-  await loadAllData();
+  await window.loadAllData();
   showSaving(false);
   renderTrend();
 }
 async function clearAllKPI(){
   if(!confirm('確定清除全部歷週KPI記錄？'))return;
   showSaving(true);
-  for(const h of _histCache) await window.fbDeleteHist(h.wk);
-  await loadAllData();
+  for(const h of window._histCache) await window.fbDeleteHist(h.wk);
+  await window.loadAllData();
   showSaving(false);
   renderTrend();
 }
@@ -1364,8 +1376,8 @@ async function importBackup(event){
       const hist  = data.kpi_hist4  || [];
 
       showSaving(true);
-      const existingDates = new Set(_dailyCache.map(r=>r.date));
-      const existingWks   = new Set(_histCache.map(h=>h.wk));
+      const existingDates = new Set(window._dailyCache.map(r=>r.date));
+      const existingWks   = new Set(window._histCache.map(h=>h.wk));
       let addedD=0, addedH=0;
       for(const r of daily){
         if(!existingDates.has(r.date)){ await window.fbSetDaily(r); addedD++; }
@@ -1373,8 +1385,8 @@ async function importBackup(event){
       for(const h of hist){
         if(!existingWks.has(h.wk)){ await window.fbSetHist(h); addedH++; }
       }
-      if(sat && !_satCache) await window.fbSetSat(sat);
-      await loadAllData();
+      if(sat && !window._satCache) await window.fbSetSat(sat);
+      await window.loadAllData();
       showSaving(false);
       alert(`✅ 匯入完成！\n新增每日記錄：${addedD} 筆\n新增週KPI記錄：${addedH} 筆\n（已存在的資料不會被覆蓋）`);
       renderReply(); renderOrder(); renderQuarter(); renderTrend();
@@ -1404,7 +1416,7 @@ function showSaving(on){
 
 async function init(){
   showSaving(true);
-  await loadAllData();
+  await window.loadAllData();
   showSaving(false);
   initDate('d-date');
   initDate('d-date2');
