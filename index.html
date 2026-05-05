@@ -705,7 +705,12 @@ function getMondayOf(offset){
   mon.setDate(now.getDate()-(day===0?6:day-1)+offset*7);
   mon.setHours(0,0,0,0); return mon;
 }
-function toStr(d){return d.toISOString().slice(0,10);}
+function toStr(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function weekKey(mon){
   const y=mon.getFullYear();
   const jan1=new Date(y,0,1);
