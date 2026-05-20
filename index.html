@@ -226,6 +226,7 @@ tr:last-child td{border-bottom:none;}
   <button class="nav-tab" onclick="showPage('satisfy',this)">服務滿意度</button>
   <button class="nav-tab" onclick="showPage('weekly',this)">每週 KPI</button>
   <button class="nav-tab" onclick="showPage('quarter',this)">期間統計</button>
+  <button class="nav-tab" onclick="showPage('platform',this)">平台分析</button>
   <button class="nav-tab" onclick="showPage('trend',this)">歷週趨勢</button>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;padding:0 0.5rem;">
     <button class="bsm bp" onclick="exportBackup()" style="font-size:12px;">⬇ 匯出備份</button>
@@ -721,6 +722,51 @@ tr:last-child td{border-bottom:none;}
 </div>
 
 <!-- ══════════════════════════════
+     PAGE 7: 平台分析
+══════════════════════════════ -->
+<div class="page" id="page-platform">
+  <h1 class="page-title">平台分析</h1>
+  <p class="page-sub">挑選日期區間，分別查看四個蝦皮帳號各自的回覆率、轉單率與滿意度</p>
+
+  <!-- 模式切換列 -->
+  <div style="display:flex;gap:6px;margin-bottom:0.75rem;flex-wrap:wrap;">
+    <button class="bsm" id="p-mode-quick" onclick="setPMode('quick')">快速區間</button>
+    <button class="bsm" id="p-mode-custom" onclick="setPMode('custom')">自訂日期</button>
+  </div>
+
+  <!-- 快速區間模式 -->
+  <div id="p-ctrl-quick" style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap;">
+    <button class="bsm" onclick="selectPQuick('thisWeek')">本週</button>
+    <button class="bsm" onclick="selectPQuick('lastWeek')">上週</button>
+    <button class="bsm" onclick="selectPQuick('thisMonth')">本月</button>
+    <button class="bsm" onclick="selectPQuick('lastMonth')">上月</button>
+    <button class="bsm" onclick="selectPQuick('last7')">近7天</button>
+    <button class="bsm" onclick="selectPQuick('last30')">近30天</button>
+  </div>
+
+  <!-- 自訂日期模式 -->
+  <div id="p-ctrl-custom" style="display:none;gap:10px;align-items:end;margin-bottom:1rem;flex-wrap:wrap;">
+    <div class="ig" style="margin:0;"><label>起始日期</label><input type="date" id="p-custom-start" onchange="renderPlatform()" style="width:auto;"></div>
+    <div class="ig" style="margin:0;"><label>結束日期</label><input type="date" id="p-custom-end" onchange="renderPlatform()" style="width:auto;"></div>
+  </div>
+
+  <!-- 目前區間提示 -->
+  <div id="p-range-hint" style="font-size:12px;color:#888780;margin-bottom:1rem;">—</div>
+
+  <div id="p-empty" class="empty">這個區間還沒有任何資料</div>
+
+  <div id="p-wrap" style="display:none;">
+    <div class="kpi-grid" id="p-cards"></div>
+
+    <!-- 區間摘要 -->
+    <div style="margin-top:1.5rem;padding:1rem 1.25rem;background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;">
+      <p class="sec" style="margin-bottom:8px;">四帳合計</p>
+      <div style="font-size:12px;color:#888780;line-height:1.7;" id="p-summary">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
      PAGE 4: 歷週趨勢
 ══════════════════════════════ -->
 <div class="page" id="page-trend">
@@ -804,6 +850,7 @@ function showPage(name,btn){
   if(name==='satisfy'){loadSatInputs();calcSat();}
   if(name==='weekly'){populateWeekSel();renderKPI();}
   if(name==='quarter'){setQMode(currentQMode);}
+  if(name==='platform'){setPMode(currentPMode);}
   if(name==='trend'){renderTrend();}
 }
 
@@ -1730,6 +1777,208 @@ function renderQuarter(){
       </tr>`;
     }).join('');
   }
+}
+
+
+// ══════ PAGE 7: 平台分析 ══════
+let currentPMode = 'quick';
+let currentPQuick = 'thisMonth';
+
+function setPMode(mode){
+  currentPMode = mode;
+  document.getElementById('p-ctrl-quick').style.display  = mode==='quick'  ? 'flex' : 'none';
+  document.getElementById('p-ctrl-custom').style.display = mode==='custom' ? 'flex' : 'none';
+  ['quick','custom'].forEach(m=>{
+    const b=document.getElementById('p-mode-'+m);
+    if(!b)return;
+    if(m===mode){b.style.background='#185FA5';b.style.color='#fff';b.style.borderColor='#185FA5';}
+    else{b.style.background='';b.style.color='';b.style.borderColor='';}
+  });
+  if(mode==='custom'){
+    const s=document.getElementById('p-custom-start');
+    const e=document.getElementById('p-custom-end');
+    if(!s.value || !e.value){
+      const today=new Date();
+      const start=new Date(today);start.setDate(today.getDate()-29);
+      s.value=toStr(start);
+      e.value=toStr(today);
+    }
+  }
+  renderPlatform();
+}
+
+function selectPQuick(key){
+  currentPQuick = key;
+  renderPlatform();
+}
+
+function highlightPQuickBtn(){
+  document.querySelectorAll('#p-ctrl-quick button').forEach(b=>{
+    const m=(b.getAttribute('onclick')||'').match(/'([^']+)'/);
+    const k=m?m[1]:'';
+    if(k===currentPQuick){b.style.background='#185FA5';b.style.color='#fff';b.style.borderColor='#185FA5';}
+    else{b.style.background='';b.style.color='';b.style.borderColor='';}
+  });
+}
+
+// 區間滿意度算法:用「結束日當下的最近快照」減「起始日前最後一筆快照」
+// 算出「區間內新增的評價」的滿意度
+function calcPlatformSat(acct, start, end){
+  const hist = (window._satHistCache || []);
+  if(hist.length===0) return {newTotal:0, newPos:0, pct:null, note:'無滿意度快照'};
+
+  // 區間內(含)最後一筆快照 → 結尾值
+  const endSnap = hist.filter(h => h.monStr <= end).slice(-1)[0];
+  if(!endSnap) return {newTotal:0, newPos:0, pct:null, note:'區間內無快照'};
+
+  // 起始日之前最後一筆快照 → 開頭值(差值就是區間內新增)
+  const startSnap = hist.filter(h => h.monStr < start).slice(-1)[0];
+
+  const cur  = endSnap[acct]   || {1:0,2:0,3:0,4:0,5:0};
+  const prev = startSnap ? (startSnap[acct] || {1:0,2:0,3:0,4:0,5:0}) : {1:0,2:0,3:0,4:0,5:0};
+
+  let newTotal=0, newPos=0;
+  for(let s=1;s<=5;s++){
+    const d = (cur[s]||0) - (prev[s]||0);
+    newTotal += d;
+    if(s>=4) newPos += d;
+  }
+
+  if(newTotal<=0){
+    // 區間內沒新增評價 → 改顯示「截至區間結束的累積滿意度」當參考
+    let ct=0, cp=0;
+    for(let s=1;s<=5;s++){
+      ct += (cur[s]||0);
+      if(s>=4) cp += (cur[s]||0);
+    }
+    const pct = ct>0 ? cp/ct*100 : null;
+    return {newTotal:0, newPos:0, pct, note:'此區間無新增評價，顯示截至區間結束的累積滿意度', isCumulative:true};
+  }
+
+  const pct = newTotal>0 ? newPos/newTotal*100 : null;
+  return {newTotal, newPos, pct, note:null, baseLabel: startSnap ? startSnap.label||startSnap.monStr : '初始'};
+}
+
+function renderPlatform(){
+  const allDaily = window._dailyCache || [];
+
+  // ── Resolve date range ──
+  let start, end, rangeHint;
+  if(currentPMode === 'quick'){
+    const r=getQuickDateRange(currentPQuick);
+    start=r.start; end=r.end;
+    rangeHint=`${quickLabel(currentPQuick)}（${start} ～ ${end}）`;
+    highlightPQuickBtn();
+  } else {
+    start=document.getElementById('p-custom-start').value;
+    end=document.getElementById('p-custom-end').value;
+    if(!start || !end){
+      document.getElementById('p-range-hint').textContent='請選擇起訖日期';
+      document.getElementById('p-empty').style.display='block';
+      document.getElementById('p-empty').textContent='請選擇起訖日期';
+      document.getElementById('p-wrap').style.display='none';
+      return;
+    }
+    if(start > end){
+      document.getElementById('p-range-hint').textContent='⚠ 起始日期不能晚於結束日期';
+      document.getElementById('p-empty').style.display='block';
+      document.getElementById('p-empty').textContent='⚠ 起始日期不能晚於結束日期';
+      document.getElementById('p-wrap').style.display='none';
+      return;
+    }
+    const ds=new Date(start+'T00:00:00'), de=new Date(end+'T00:00:00');
+    const days=Math.round((de-ds)/86400000)+1;
+    rangeHint=`自訂區間（${start} ～ ${end}，共 ${days} 天）`;
+  }
+  document.getElementById('p-range-hint').textContent=rangeHint;
+
+  const daily = allDaily.filter(r => r.date >= start && r.date <= end);
+  const hasAny = daily.length > 0 || (window._satHistCache && window._satHistCache.length>0);
+  document.getElementById('p-empty').style.display = hasAny ? 'none' : 'block';
+  document.getElementById('p-empty').textContent = '這個區間還沒有任何資料';
+  document.getElementById('p-wrap').style.display  = hasAny ? 'block' : 'none';
+  if(!hasAny) return;
+
+  // ── 各帳號計算 ──
+  const acctNames = {A:'帳號 A', B:'帳號 B', C:'帳號 C', D:'帳號 D'};
+  const cardsHtml = ACCTS.map(a => {
+    // 回覆率(該帳號區間內每日平均)
+    const replyVals = daily.map(r=>r['rr'+a]).filter(v=>v!==null && v!==undefined);
+    const replyAvg = replyVals.length>0 ? replyVals.reduce((s,v)=>s+v,0)/replyVals.length : null;
+
+    // 轉單率(該帳號區間內總買家 ÷ 總回覆)
+    const totRep = daily.reduce((s,r)=>s+(r['rep'+a]||0),0);
+    const totBuy = daily.reduce((s,r)=>s+(r['buy'+a]||0),0);
+    const orderPct = totRep>0 ? totBuy/totRep*100 : null;
+
+    // 銷售額
+    const totSal = daily.reduce((s,r)=>s+(r['sal'+a]||0),0);
+
+    // 滿意度(差值)
+    const sat = calcPlatformSat(a, start, end);
+
+    return `<div class="kpi-card">
+      <div style="text-align:center;margin-bottom:8px;"><span class="acct-badge acc-${a}" style="margin:0;font-size:13px;padding:4px 14px;">${acctNames[a]}</span></div>
+
+      <div class="krow" style="margin-top:8px;"><span>回覆率</span><span style="font-weight:500;font-size:15px;">${replyAvg!==null?replyAvg.toFixed(2)+'%':'—'}</span></div>
+      <div class="krow"><span style="color:#888780;font-size:11px;">資料天數</span><span style="color:#888780;font-size:11px;">${replyVals.length} 天</span></div>
+
+      <div class="krow" style="margin-top:10px;"><span>轉單率</span><span style="font-weight:500;font-size:15px;">${orderPct!==null?orderPct.toFixed(2)+'%':'—'}</span></div>
+      <div class="krow"><span style="color:#888780;font-size:11px;">回覆 / 買家</span><span style="color:#888780;font-size:11px;">${totRep} / ${totBuy}</span></div>
+      <div class="krow"><span style="color:#888780;font-size:11px;">銷售額</span><span style="color:#888780;font-size:11px;">${totSal>0?'$'+totSal.toLocaleString():'—'}</span></div>
+
+      <div class="krow" style="margin-top:10px;"><span>滿意度${sat.isCumulative?'<span style="font-size:9px;color:#aaa;">（累積）</span>':''}</span><span style="font-weight:500;font-size:15px;">${sat.pct!==null?sat.pct.toFixed(2)+'%':'—'}</span></div>
+      ${sat.newTotal>0
+        ? `<div class="krow"><span style="color:#888780;font-size:11px;">新增評價</span><span style="color:#888780;font-size:11px;">${sat.newTotal} 則（4★+5★：${sat.newPos}）</span></div>`
+        : (sat.note?`<div style="font-size:10px;color:#aaa;margin-top:2px;">${sat.note}</div>`:'')
+      }
+    </div>`;
+  }).join('');
+
+  document.getElementById('p-cards').innerHTML = cardsHtml;
+
+  // ── 區間摘要 ──
+  const allReply = daily.flatMap(r => ACCTS.map(a=>r['rr'+a])).filter(v=>v!==null && v!==undefined);
+  const replyAll = allReply.length>0 ? (allReply.reduce((s,v)=>s+v,0)/allReply.length) : null;
+  const allRep = daily.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
+  const allBuy = daily.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
+  const allSal = daily.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
+  const allOrder = allRep>0 ? allBuy/allRep*100 : null;
+
+  // 四帳合計滿意度(差值合計)
+  let totalNew=0, totalPos=0, allCumTotal=0, allCumPos=0;
+  ACCTS.forEach(a=>{
+    const s = calcPlatformSat(a, start, end);
+    if(s.isCumulative){
+      // 累積模式下,用該帳號區間結束時的累積評價
+      const hist = (window._satHistCache || []);
+      const endSnap = hist.filter(h => h.monStr <= end).slice(-1)[0];
+      if(endSnap && endSnap[a]){
+        for(let i=1;i<=5;i++){
+          allCumTotal += (endSnap[a][i]||0);
+          if(i>=4) allCumPos += (endSnap[a][i]||0);
+        }
+      }
+    } else {
+      totalNew += s.newTotal;
+      totalPos += s.newPos;
+    }
+  });
+  let satAllPct = null, satAllNote = '';
+  if(totalNew>0){
+    satAllPct = totalPos/totalNew*100;
+    satAllNote = `（新增 ${totalNew} 則評價，4★+5★ 共 ${totalPos} 則）`;
+  } else if(allCumTotal>0){
+    satAllPct = allCumPos/allCumTotal*100;
+    satAllNote = '（區間內無新增評價，顯示累積值）';
+  }
+
+  document.getElementById('p-summary').innerHTML = `
+    <div>四帳平均回覆率：<b style="color:#1a1a18;">${replyAll!==null?replyAll.toFixed(2)+'%':'—'}</b></div>
+    <div>四帳合計轉單率：<b style="color:#1a1a18;">${allOrder!==null?allOrder.toFixed(2)+'%':'—'}</b>（總回覆 ${allRep} 則，總買家 ${allBuy} 人）</div>
+    <div>四帳合計銷售額：<b style="color:#1a1a18;">${allSal>0?'$'+allSal.toLocaleString():'—'}</b></div>
+    <div>四帳合計滿意度：<b style="color:#1a1a18;">${satAllPct!==null?satAllPct.toFixed(2)+'%':'—'}</b>${satAllNote?'<span style="color:#aaa;">'+satAllNote+'</span>':''}</div>
+  `;
 }
 
 
