@@ -379,16 +379,23 @@ tr:last-child td{border-bottom:none;}
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
     <p class="sec" style="margin:0">本週已記錄（<span id="order-week-label">—</span>）</p>
-    <div style="display:flex;gap:6px;">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;user-select:none;margin-right:6px;">
+        <input type="checkbox" id="order-weekday-only" onchange="toggleOrderWeekday()" style="cursor:pointer;">
+        <span>只看平日</span>
+      </label>
       <button class="bsm" onclick="changeWeek('order',-1)">← 上週</button>
       <button class="bsm" onclick="changeWeek('order',0)">本週</button>
       <button class="bsm" onclick="changeWeek('order',1)">下週 →</button>
     </div>
   </div>
 
-  <div style="margin-bottom:1rem;padding:10px 14px;background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:10px;display:flex;gap:24px;flex-wrap:wrap;">
-    <div><span style="font-size:12px;color:#888780;">本週累計轉單率：</span><span id="sum-order-rate" style="font-size:20px;font-weight:500;color:#185FA5;">—</span></div>
-    <div><span style="font-size:12px;color:#888780;">本週總銷售額：</span><span id="sum-sales" style="font-size:20px;font-weight:500;color:#185FA5;">—</span></div>
+  <div style="margin-bottom:1rem;padding:10px 14px;background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:10px;">
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      <div><span style="font-size:12px;color:#888780;" id="sum-label-rate">本週累計轉單率：</span><span id="sum-order-rate" style="font-size:20px;font-weight:500;color:#185FA5;">—</span></div>
+      <div><span style="font-size:12px;color:#888780;" id="sum-label-sales">本週總銷售額：</span><span id="sum-sales" style="font-size:20px;font-weight:500;color:#185FA5;">—</span></div>
+    </div>
+    <div id="sum-holiday-info" style="display:none;margin-top:8px;padding-top:8px;border-top:.5px dashed rgba(0,0,0,.08);font-size:11px;color:#888780;"></div>
   </div>
 
   <div class="table-card">
@@ -1072,17 +1079,55 @@ async function deleteOrderRecord(date){
   renderOrder();
 }
 
+function toggleOrderWeekday(){
+  const cb = document.getElementById('order-weekday-only');
+  setWeekdayOnly('order', cb.checked);
+  renderOrder();
+}
+
 function renderOrder(){
   initDate('d-date2');
   const mon=getMondayOf(window.weekOffsetOrder);
   document.getElementById('order-week-label').textContent=weekLabel(mon);
   const week=getWeekRecs(window.weekOffsetOrder);
   week.sort((a,b)=>a.date.localeCompare(b.date));
-  const totRep=week.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
-  const totBuy=week.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
+
+  // 平日切換狀態同步
+  const cb = document.getElementById('order-weekday-only');
+  if(cb) cb.checked = getWeekdayOnly('order');
+  const weekdayOnly = getWeekdayOnly('order');
+
+  // 分平日 / 假日
+  const weekWD = week.filter(r => !isHoliday(r.date));
+  const weekHD = week.filter(r => isHoliday(r.date));
+  const sumSource = weekdayOnly ? weekWD : week;
+
+  const totRep=sumSource.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
+  const totBuy=sumSource.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
   document.getElementById('sum-order-rate').textContent=totRep>0?(totBuy/totRep*100).toFixed(2)+'%':'—';
-  const totSales=week.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
+  const totSales=sumSource.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
   document.getElementById('sum-sales').textContent=totSales>0?'$'+totSales.toLocaleString():'—';
+
+  // 摘要標籤
+  document.getElementById('sum-label-rate').textContent  = weekdayOnly ? '本週平日累計轉單率：' : '本週累計轉單率：';
+  document.getElementById('sum-label-sales').textContent = weekdayOnly ? '本週平日銷售額：' : '本週總銷售額：';
+
+  // 假日資訊區
+  const hInfo = document.getElementById('sum-holiday-info');
+  if(weekdayOnly && weekHD.length>0){
+    const hRep = weekHD.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
+    const hBuy = weekHD.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
+    const hSal = weekHD.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
+    const hRate = hRep>0 ? (hBuy/hRep*100).toFixed(2)+'%' : '—';
+    hInfo.style.display = 'block';
+    hInfo.innerHTML = `假日獨立統計（${weekHD.length} 天）｜轉單率 ${hRate}｜銷售額 ${hSal>0?'$'+hSal.toLocaleString():'—'}`;
+  } else if(weekdayOnly && weekHD.length===0){
+    hInfo.style.display = 'block';
+    hInfo.innerHTML = '本週無假日資料可排除';
+  } else {
+    hInfo.style.display = 'none';
+  }
+
   const tbody=document.getElementById('order-tbody');
   const empty=document.getElementById('order-empty');
   const hasData=week.some(r=>(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)>0||(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0)>0);
@@ -1094,6 +1139,9 @@ function renderOrder(){
     const dBuy=(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0);
     const dSal=(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0);
     const hasSales = dSal>0;
+    const holiday = isHoliday(r.date);
+    const rowBg = (weekdayOnly && holiday) ? 'background:#faf6ed;color:#aaa;' : '';
+    const dateTag = holiday ? '<span style="background:#FFF3E0;color:#8a4a00;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:6px;">假日</span>' : '';
     const salesDisplay = hasSales
       ? `<span style="color:#185FA5;cursor:pointer;user-select:none;" title="點擊展開各帳銷售額">$${dSal.toLocaleString()} <span class="sal-arrow" style="font-size:10px;color:#888780;">▸</span></span>`
       : '—';
@@ -1108,8 +1156,8 @@ function renderOrder(){
         </div>
       </td>
     </tr>` : '';
-    return`<tr${hasSales?` style="cursor:pointer;" onclick="toggleSalDetail('${r.date}',event)"`:''}>
-      <td style="font-weight:500">${r.date}</td>
+    return`<tr${hasSales?` style="cursor:pointer;${rowBg}" onclick="toggleSalDetail('${r.date}',event)"`:` style="${rowBg}"`}>
+      <td style="font-weight:500">${r.date}${dateTag}</td>
       <td>${r.repA||0}</td><td>${r.buyA||0}</td><td>${fOR(r.buyA,r.repA)}</td>
       <td>${r.repB||0}</td><td>${r.buyB||0}</td><td>${fOR(r.buyB,r.repB)}</td>
       <td>${r.repC||0}</td><td>${r.buyC||0}</td><td>${fOR(r.buyC,r.repC)}</td>
