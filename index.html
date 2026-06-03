@@ -796,14 +796,10 @@ tr:last-child td{border-bottom:none;}
   <div id="trend-wrap" style="display:none;">
     <div class="card" style="margin-bottom:1rem;">
       <div class="chart-wrap">
-        <canvas id="trendChart" role="img" aria-label="歷週KPI加權總分趨勢">歷週KPI趨勢</canvas>
+        <canvas id="trendChart" role="img" aria-label="歷週轉單率趨勢">歷週轉單率趨勢</canvas>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;">
-        <div class="legend" id="trend-legend" style="flex-wrap:wrap;"></div>
-        <div style="display:flex;gap:6px;">
-          <button class="bsm" onclick="trendToggleAll(true)" style="font-size:11px;padding:4px 10px;">全選</button>
-          <button class="bsm" onclick="trendToggleAll(false)" style="font-size:11px;padding:4px 10px;">全不選</button>
-        </div>
+      <div style="margin-top:8px;font-size:11px;color:#888780;text-align:center;">
+        圖表顯示歷週「<b style="color:#993556;">回覆轉單率</b>」實際百分比，目標 13%
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -1508,29 +1504,6 @@ async function saveWeeklyKPI(){
 
 // ══════ PAGE 4: Trend ══════
 let trendChart=null;
-// 哪幾條線要顯示(預設全顯示)。key 對應 dataset 的 label
-let trendVisibility = (function(){
-  try {
-    const s = localStorage.getItem('trendVisibility');
-    if(s){
-      const parsed = JSON.parse(s);
-      // 確保結構完整
-      return {
-        '加權總分': parsed['加權總分'] !== false,
-        '回覆率': parsed['回覆率'] !== false,
-        '滿意度': parsed['滿意度'] !== false,
-        '轉單率': parsed['轉單率'] !== false,
-        '留任率': parsed['留任率'] !== false,
-      };
-    }
-  } catch(e){}
-  return {'加權總分':true,'回覆率':true,'滿意度':true,'轉單率':true,'留任率':true};
-})();
-
-function saveTrendVisibility(){
-  try { localStorage.setItem('trendVisibility', JSON.stringify(trendVisibility)); } catch(e){}
-}
-
 function renderTrend(){
   const arr=LH();
   const empty=document.getElementById('trend-empty');
@@ -1549,31 +1522,60 @@ function renderTrend(){
   }).join('');
   const ctx=document.getElementById('trendChart');
   if(trendChart)trendChart.destroy();
-  const C={t:'#185FA5',s1:'#1D9E75',s2:'#BA7517',s3:'#993556',s4:'#534AB7'};
 
-  // 自訂 plugin:單一 dataset 可見時,在每個資料點上方繪製數值
+  // 從 s3(原始分)反推實際轉單率%: 轉單率% = 13 + (s3-100)/7.69
+  const orderPcts = arr.map(h => h.s3!==null ? +(13 + (h.s3-100)/7.69).toFixed(2) : null);
+
+  // 計算 Y 軸範圍:依資料動態,目標線13%要在中間
+  const validPcts = orderPcts.filter(v=>v!==null);
+  const dataMax = validPcts.length>0 ? Math.max(...validPcts) : 20;
+  const dataMin = validPcts.length>0 ? Math.min(...validPcts) : 5;
+  const yMax = Math.ceil(Math.max(dataMax+2, 18));
+  const yMin = Math.max(0, Math.floor(Math.min(dataMin-2, 8)));
+
+  // 目標線 plugin
+  const targetLinePlugin = {
+    id: 'targetLine',
+    afterDatasetsDraw(chart){
+      const {ctx, chartArea:{left,right}, scales:{y}} = chart;
+      const yPos = y.getPixelForValue(13);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(24,95,165,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath();
+      ctx.moveTo(left, yPos);
+      ctx.lineTo(right, yPos);
+      ctx.stroke();
+      // label
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(24,95,165,0.85)';
+      ctx.font = '600 10px -apple-system, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('目標 13%', left+4, yPos-2);
+      ctx.restore();
+    }
+  };
+
+  // 點上顯示數值 plugin
   const pointValuePlugin = {
     id: 'pointValueLabel',
     afterDatasetsDraw(chart){
-      const visibleDatasets = chart.data.datasets
-        .map((d,i)=>({d,i}))
-        .filter(x=>chart.isDatasetVisible(x.i));
-      if(visibleDatasets.length !== 1) return; // 只在單選時顯示
-      const {d, i} = visibleDatasets[0];
-      const meta = chart.getDatasetMeta(i);
+      const ds = chart.data.datasets[0];
+      const meta = chart.getDatasetMeta(0);
       const {ctx} = chart;
       ctx.save();
       ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = d.borderColor || '#1a1a18';
+      ctx.fillStyle = ds.borderColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       meta.data.forEach((point, idx)=>{
-        const v = d.data[idx];
+        const v = ds.data[idx];
         if(v===null || v===undefined) return;
-        const txt = v.toFixed(2);
+        const txt = v.toFixed(2)+'%';
         const x = point.x;
-        const y = point.y - 8; // 點上方 8px
-        // 加白色描邊提高可讀性
+        const y = point.y - 8;
         ctx.strokeStyle = 'rgba(255,255,255,0.95)';
         ctx.lineWidth = 3;
         ctx.strokeText(txt, x, y);
@@ -1585,69 +1587,49 @@ function renderTrend(){
 
   trendChart=new Chart(ctx,{
     type:'line',
-    plugins:[pointValuePlugin],
+    plugins:[targetLinePlugin, pointValuePlugin],
     data:{
       labels:arr.map(h=>h.wk),
       datasets:[
-        {label:'加權總分',data:arr.map(h=>+h.weighted.toFixed(2)),borderColor:C.t,backgroundColor:'rgba(24,95,165,0.07)',tension:0.3,borderWidth:2.5,pointRadius:5,fill:true,hidden:!trendVisibility['加權總分']},
-        {label:'回覆率',data:arr.map(h=>h.s1!==null?+(h.s1/100*15).toFixed(2):null),borderColor:C.s1,borderWidth:1.5,tension:0.3,pointRadius:3,borderDash:[5,3],fill:false,hidden:!trendVisibility['回覆率']},
-        {label:'滿意度',data:arr.map(h=>h.s2!==null?+(h.s2/100*15).toFixed(2):null),borderColor:C.s2,borderWidth:1.5,tension:0.3,pointRadius:3,borderDash:[5,3],fill:false,hidden:!trendVisibility['滿意度']},
-        {label:'轉單率',data:arr.map(h=>h.s3!==null?+(h.s3/100*15).toFixed(2):null),borderColor:C.s3,borderWidth:1.5,tension:0.3,pointRadius:3,borderDash:[5,3],fill:false,hidden:!trendVisibility['轉單率']},
-        {label:'留任率',data:arr.map(h=>h.s4!==null?+(h.s4/100*10).toFixed(2):null),borderColor:C.s4,borderWidth:1.5,tension:0.3,pointRadius:3,borderDash:[5,3],fill:false,hidden:!trendVisibility['留任率']},
+        {
+          label:'轉單率',
+          data:orderPcts,
+          borderColor:'#993556',
+          backgroundColor:'rgba(153,53,86,0.08)',
+          tension:0.3,
+          borderWidth:2.5,
+          pointRadius:5,
+          pointBackgroundColor:'#993556',
+          fill:true
+        }
       ]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          callbacks:{
+            label:(c)=>'轉單率：'+c.parsed.y.toFixed(2)+'%'
+          }
+        }
+      },
       scales:{
-        y:{min:0,max:60,ticks:{stepSize:10,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{
+          min:yMin,
+          max:yMax,
+          ticks:{
+            font:{size:11},
+            callback:(v)=>v+'%'
+          },
+          grid:{color:'rgba(0,0,0,0.05)'}
+        },
         x:{ticks:{font:{size:11},autoSkip:false}}
       }
     }
   });
-  renderTrendLegend();
-}
-
-function renderTrendLegend(){
-  const C={t:'#185FA5',s1:'#1D9E75',s2:'#BA7517',s3:'#993556',s4:'#534AB7'};
-  const items = [
-    {c:C.t,l:'加權總分',d:false},
-    {c:C.s1,l:'回覆率',d:true},
-    {c:C.s2,l:'滿意度',d:true},
-    {c:C.s3,l:'轉單率',d:true},
-    {c:C.s4,l:'留任率',d:true}
-  ];
-  document.getElementById('trend-legend').innerHTML = items.map(i=>{
-    const on = trendVisibility[i.l] !== false;
-    const lineStyle = i.d ? 'border-top:2px dashed '+i.c+';background:none' : 'background:'+i.c;
-    return `<span class="legend-item" onclick="trendToggleLine('${i.l}')" style="cursor:pointer;user-select:none;opacity:${on?'1':'0.35'};padding:4px 10px;border-radius:6px;border:.5px solid ${on?'rgba(0,0,0,.12)':'rgba(0,0,0,.06)'};background:${on?'#fff':'#f5f4f0'};transition:opacity .15s,background .15s;">
-      <span class="legend-line" style="${lineStyle}"></span>${i.l}
-    </span>`;
-  }).join('');
-}
-
-function trendToggleLine(label){
-  if(!trendChart) return;
-  const idx = trendChart.data.datasets.findIndex(d=>d.label===label);
-  if(idx<0) return;
-  const willShow = !trendChart.isDatasetVisible(idx);
-  trendChart.setDatasetVisibility(idx, willShow);
-  trendChart.update();
-  trendVisibility[label] = willShow;
-  saveTrendVisibility();
-  renderTrendLegend();
-}
-
-function trendToggleAll(show){
-  if(!trendChart) return;
-  ['加權總分','回覆率','滿意度','轉單率','留任率'].forEach(label=>{
-    const idx = trendChart.data.datasets.findIndex(d=>d.label===label);
-    if(idx>=0) trendChart.setDatasetVisibility(idx, show);
-    trendVisibility[label] = show;
-  });
-  trendChart.update();
-  saveTrendVisibility();
-  renderTrendLegend();
 }
 
 async function deleteTrendRow(idx){
