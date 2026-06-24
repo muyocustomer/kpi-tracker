@@ -679,12 +679,12 @@ tr:last-child td{border-bottom:none;}
       </div>
       <div class="kpi-card">
         <div class="name">服務滿意度</div>
-        <div class="meta">目標 99%｜從已儲存週KPI平均</div>
-        <div class="krow"><span>期間平均滿意度</span><span id="q-sat-pct" style="font-weight:500">—</span></div>
+        <div class="meta">目標 99%｜期間內新增評價的滿意度</div>
+        <div class="krow"><span>期間滿意度</span><span id="q-sat-pct" style="font-weight:500">—</span></div>
         <div class="krow" style="margin-top:4px;"><span>達成率（目標 99%）</span><span id="q-sat-ach" style="font-weight:500">—</span></div>
         <div class="krow"><span>原始分（參考）</span><span id="q-sat-raw" class="pill pn">—</span></div>
         <div class="krow"><span>加權分（×15%）</span><span id="q-sat-w" style="font-weight:500;color:#185FA5">—</span></div>
-        <div class="krow" style="margin-top:4px;"><span>資料週數</span><span id="q-sat-weeks" style="color:#888780;">—</span></div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px;" id="q-sat-weeks">—</div>
       </div>
       <div class="kpi-card">
         <div class="name">回覆轉單率</div>
@@ -2069,7 +2069,7 @@ function renderQuarter(){
     return monStr >= start && monStr <= end;
   });
 
-  const hasAny = dailyAll.length > 0 || kpiWeeks.length > 0;
+  const hasAny = dailyAll.length > 0 || kpiWeeks.length > 0 || (window._satHistCache && window._satHistCache.length>0);
   document.getElementById('q-empty').style.display = hasAny ? 'none' : 'block';
   document.getElementById('q-empty').textContent = '這個區間還沒有任何資料';
   document.getElementById('q-wrap').style.display  = hasAny ? 'block' : 'none';
@@ -2114,21 +2114,68 @@ function renderQuarter(){
   set('q-order-ach', orderPct!==null ? (orderPct/13*100).toFixed(1)+'%' : '—');
   set('q-order-rep', totRep>0 ? totRep+' 則' : '—');
 
-  // ── 滿意度 & 留任率：from saved weekly KPI records in range ──
-  const satScores  = kpiWeeks.map(h=>h.s2).filter(v=>v!==null);
+  // ── 滿意度：用快照差值算「期間內新增評價的滿意度」 ──
+  // 邏輯:取「<=end」最後一筆快照 − 「<start」前最後一筆快照,差就是區間內新增的評價
+  const satHist = (window._satHistCache || []);
+  let satPct = null;        // 期間新增評價的滿意度 (%)
+  let satRawScore = null;   // 對應的原始分(用既有的扣分公式)
+  let satInfo = '';         // 顯示用補充說明
+  let satNewTotal = 0;
+  if(satHist.length>0){
+    const endSnap   = satHist.filter(h => h.monStr <= end).slice(-1)[0];
+    const startSnap = satHist.filter(h => h.monStr < start).slice(-1)[0];
+    if(endSnap){
+      // 計算四帳合計差值
+      let newTotal=0, newPos=0;
+      ACCTS.forEach(a=>{
+        const cur  = endSnap[a]   || {};
+        const prev = startSnap ? (startSnap[a] || {}) : {};
+        for(let s=1;s<=5;s++){
+          const d = (cur[s]||0) - (prev[s]||0);
+          newTotal += d;
+          if(s>=4) newPos += d;
+        }
+      });
+      if(newTotal>0){
+        satPct = newPos/newTotal*100;
+        satNewTotal = newTotal;
+        satInfo = `期間新增 ${newTotal} 則評價`;
+        // 用滿意度計分公式換算原始分(每少1%扣2.5分)
+        if(satPct>=99) satRawScore = 100;
+        else satRawScore = Math.max(0, Math.min(100, 100 - (99-satPct)*2.5));
+      } else {
+        // 區間內無新增評價 → 用「期間結束時的累積滿意度」當顯示值
+        let cumT=0, cumP=0;
+        ACCTS.forEach(a=>{
+          const cur = endSnap[a] || {};
+          for(let s=1;s<=5;s++){
+            cumT += (cur[s]||0);
+            if(s>=4) cumP += (cur[s]||0);
+          }
+        });
+        if(cumT>0){
+          satPct = cumP/cumT*100;
+          satInfo = '期間內無新增評價，顯示截至區間結束的累積滿意度';
+          if(satPct>=99) satRawScore = 100;
+          else satRawScore = Math.max(0, Math.min(100, 100 - (99-satPct)*2.5));
+        }
+      }
+    }
+  }
+  set('q-sat-pct',  satPct!==null ? satPct.toFixed(2)+'%' : '無儲存資料');
+  set('q-sat-ach',  satPct!==null ? (satPct/99*100).toFixed(1)+'%' : '—');
+  set('q-sat-weeks', satInfo || '—');
+
+  // ── 留任率：from saved weekly KPI records (簡單平均) ──
   const retScores  = kpiWeeks.map(h=>h.s4).filter(v=>v!==null);
-  const satPctRaw  = satScores.length>0  ? satScores.reduce((s,v)=>s+v,0)/satScores.length  : null;
   const retPctRaw  = retScores.length>0  ? retScores.reduce((s,v)=>s+v,0)/retScores.length  : null;
-  set('q-sat-pct',  satPctRaw!==null  ? satPctRaw.toFixed(2)+' 分（原始分平均）'  : '無儲存資料');
-  set('q-sat-ach',  satPctRaw!==null  ? (satPctRaw/100*100).toFixed(1)+'%' : '—');
-  set('q-sat-weeks', satScores.length>0 ? satScores.length+' 週' : '—');
   set('q-ret-pct',  retPctRaw!==null  ? retPctRaw.toFixed(2)+' 分（原始分平均）'  : '無儲存資料');
   set('q-ret-ach',  retPctRaw!==null  ? (retPctRaw/100*100).toFixed(1)+'%' : '—');
   set('q-ret-weeks', retScores.length>0 ? retScores.length+' 週' : '—');
 
   // ── Calc reference scores ──
   const s1 = replyPct!==null  ? Math.min(Math.max(replyPct,0),100)   : null;
-  const s2 = satPctRaw!==null ? satPctRaw  : null;
+  const s2 = satRawScore;
   const s3 = orderPct!==null  ? Math.min(Math.max(100+(orderPct-13)*7.69,0),200) : null;
   const s4 = retPctRaw!==null ? retPctRaw  : null;
 
