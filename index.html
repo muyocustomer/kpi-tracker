@@ -72,6 +72,19 @@ async function fbSetSatHist(rec){
 async function fbDeleteSatHist(monStr){
   await deleteDoc(doc(db,'satHist',monStr));
 }
+async function fbGetAnomalyHist(){
+  const snap = await getDocs(collection(db,'anomalyHist'));
+  const arr = [];
+  snap.forEach(d => arr.push(d.data()));
+  arr.sort((a,b)=>a.monStr.localeCompare(b.monStr));
+  return arr;
+}
+async function fbSetAnomalyHist(rec){
+  await setDoc(doc(db,'anomalyHist',rec.monStr), rec);
+}
+async function fbDeleteAnomalyHist(monStr){
+  await deleteDoc(doc(db,'anomalyHist',monStr));
+}
 
 // ── Expose everything to global scope ──
 window.fbGetDaily    = fbGetDaily;
@@ -84,12 +97,16 @@ window.fbSetHist     = fbSetHist;
 window.fbGetSatHist    = fbGetSatHist;
 window.fbSetSatHist    = fbSetSatHist;
 window.fbDeleteSatHist = fbDeleteSatHist;
+window.fbGetAnomalyHist    = fbGetAnomalyHist;
+window.fbSetAnomalyHist    = fbSetAnomalyHist;
+window.fbDeleteAnomalyHist = fbDeleteAnomalyHist;
 
 // Cache variables exposed globally
 window._dailyCache  = [];
 window._histCache   = [];
 window._satCache    = null;
 window._satHistCache= [];
+window._anomalyHistCache = [];
 
 // loadAllData exposed globally
 window.loadAllData = async function(){
@@ -97,6 +114,7 @@ window.loadAllData = async function(){
   window._histCache    = await fbGetHist();
   window._satCache     = await fbGetSat();
   window._satHistCache = await fbGetSatHist();
+  window._anomalyHistCache = await fbGetAnomalyHist();
 };
 
 // Signal that Firebase is ready
@@ -228,6 +246,7 @@ tr:last-child td{border-bottom:none;}
   <button class="nav-tab" onclick="showPage('quarter',this)">期間統計</button>
   <button class="nav-tab" onclick="showPage('platform',this)">平台分析</button>
   <button class="nav-tab" onclick="showPage('trend',this)">歷週趨勢</button>
+  <button class="nav-tab" onclick="showPage('anomaly',this)">異常率追蹤</button>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;padding:0 0.5rem;">
     <button class="bsm bp" onclick="exportBackup()" style="font-size:12px;">⬇ 匯出備份</button>
     <label class="bsm" style="cursor:pointer;padding:5px 12px;border:.5px solid rgba(0,0,0,.2);border-radius:8px;font-size:12px;background:#fff;">
@@ -844,6 +863,125 @@ tr:last-child td{border-bottom:none;}
   </div>
 </div>
 
+<!-- ══════════════════════════════
+     PAGE 8: 異常率追蹤
+══════════════════════════════ -->
+<div class="page" id="page-anomaly">
+  <h1 class="page-title">異常率追蹤</h1>
+  <p class="page-sub">追蹤商品錯誤、瑕疵與其他問題的發生率，分「登記日期」與「出貨日期」雙視角</p>
+
+  <!-- 週次切換 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+    <p class="sec" style="margin:0">查看週次（<span id="anom-week-label">—</span>）<span id="anom-week-status" style="font-size:10px;color:#aaa;margin-left:6px;"></span></p>
+    <div style="display:flex;gap:6px;">
+      <button class="bsm" onclick="changeAnomWeek(-1)">← 上週</button>
+      <button class="bsm" onclick="changeAnomWeek(0)">本週</button>
+      <button class="bsm" onclick="changeAnomWeek(1)">下週 →</button>
+    </div>
+  </div>
+
+  <!-- 雙欄輸入 -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem;margin-bottom:1rem;">
+
+    <!-- 左:登記日期 -->
+    <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;">
+        <h3 style="margin:0;font-size:16px;font-weight:500;">登記日期</h3>
+        <span style="font-size:11px;color:#888780;">本週（週為單位）</span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:1rem;" id="anom-reg-range">—</div>
+
+      <div class="ig"><label>本週總出貨量</label><input type="number" id="anom-reg-total" min="0" oninput="calcAnom()"></div>
+      <div class="ig"><label>商品錯誤數</label><input type="number" id="anom-reg-err" min="0" oninput="calcAnom()"></div>
+      <div class="ig"><label>商品瑕疵數</label><input type="number" id="anom-reg-def" min="0" oninput="calcAnom()"></div>
+      <div class="ig"><label>其他問題數</label><input type="number" id="anom-reg-oth" min="0" oninput="calcAnom()"></div>
+
+      <div style="margin-top:1rem;padding-top:0.75rem;border-top:.5px solid rgba(0,0,0,.08);">
+        <div class="krow"><span>商品錯誤率</span><span id="anom-reg-err-pct" style="font-weight:500;color:#993556;">—</span></div>
+        <div class="krow"><span>商品瑕疵率</span><span id="anom-reg-def-pct" style="font-weight:500;color:#BA7517;">—</span></div>
+        <div class="krow"><span>其他問題率</span><span id="anom-reg-oth-pct" style="font-weight:500;color:#534AB7;">—</span></div>
+      </div>
+    </div>
+
+    <!-- 右:出貨日期 -->
+    <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;">
+        <h3 style="margin:0;font-size:16px;font-weight:500;">出貨日期</h3>
+        <span style="font-size:11px;color:#888780;">半月累計</span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:1rem;" id="anom-ship-range">—</div>
+
+      <div class="ig"><label>半月累計總出貨量</label><input type="number" id="anom-ship-total" min="0" oninput="calcAnom()"></div>
+      <div class="ig"><label>商品錯誤數（累計）</label><input type="number" id="anom-ship-err" min="0" oninput="calcAnom()"></div>
+      <div class="ig"><label>商品瑕疵數（累計）</label><input type="number" id="anom-ship-def" min="0" oninput="calcAnom()"></div>
+      <div class="ig"><label>其他問題數（累計）</label><input type="number" id="anom-ship-oth" min="0" oninput="calcAnom()"></div>
+
+      <div style="margin-top:1rem;padding-top:0.75rem;border-top:.5px solid rgba(0,0,0,.08);">
+        <div class="krow"><span>商品錯誤率</span><span id="anom-ship-err-pct" style="font-weight:500;color:#993556;">—</span></div>
+        <div class="krow"><span>商品瑕疵率</span><span id="anom-ship-def-pct" style="font-weight:500;color:#BA7517;">—</span></div>
+        <div class="krow"><span>其他問題率</span><span id="anom-ship-oth-pct" style="font-weight:500;color:#534AB7;">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 儲存按鈕 -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:1.5rem;">
+    <button class="bp bsm" onclick="saveAnomData()" id="anom-save-btn">儲存本週資料 →</button>
+  </div>
+
+  <!-- 歷週趨勢圖 -->
+  <p class="sec">歷週異常率趨勢</p>
+  <div id="anom-trend-empty" class="empty" style="display:none;">尚無儲存記錄，請先填寫並儲存本週資料</div>
+  <div id="anom-trend-wrap">
+
+    <!-- 登記日期趨勢圖 -->
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="font-size:13px;font-weight:500;margin-bottom:6px;">登記日期（週為單位）</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="anomRegChart"></canvas>
+      </div>
+      <div id="anom-reg-legend" style="display:flex;justify-content:center;gap:14px;font-size:11px;color:#6b6b66;margin-top:6px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:18px;height:3px;background:#993556;border-radius:2px;"></span>商品錯誤率</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:18px;height:3px;background:#BA7517;border-radius:2px;"></span>商品瑕疵率</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:18px;height:3px;background:#534AB7;border-radius:2px;"></span>其他問題率</span>
+      </div>
+    </div>
+
+    <!-- 出貨日期趨勢圖 -->
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="font-size:13px;font-weight:500;margin-bottom:6px;">出貨日期（半月累計）</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="anomShipChart"></canvas>
+      </div>
+      <div style="display:flex;justify-content:center;gap:14px;font-size:11px;color:#6b6b66;margin-top:6px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:18px;height:3px;background:#993556;border-radius:2px;"></span>商品錯誤率</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:18px;height:3px;background:#BA7517;border-radius:2px;"></span>商品瑕疵率</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:18px;height:3px;background:#534AB7;border-radius:2px;"></span>其他問題率</span>
+      </div>
+    </div>
+
+    <!-- 歷週記錄表 -->
+    <p class="sec" style="margin-top:1.5rem;">歷週記錄明細</p>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2">週次</th>
+            <th colspan="4" style="text-align:center;">登記日期</th>
+            <th colspan="4" style="text-align:center;">出貨日期（半月累計）</th>
+            <th rowspan="2">操作</th>
+          </tr>
+          <tr>
+            <th>總量</th><th>錯誤率</th><th>瑕疵率</th><th>其他</th>
+            <th>總量</th><th>錯誤率</th><th>瑕疵率</th><th>其他</th>
+          </tr>
+        </thead>
+        <tbody id="anom-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════ Storage ══════
 // Sync readers - read from window cache populated by Firebase
@@ -944,6 +1082,7 @@ function showPage(name,btn){
   if(name==='quarter'){setQMode(currentQMode);}
   if(name==='platform'){setPMode(currentPMode);}
   if(name==='trend'){renderTrend();}
+  if(name==='anomaly'){loadAnomInputs(); renderAnomTrend();}
 }
 
 // ══════ PAGE 1&2: Reply & Order ══════
@@ -1767,6 +1906,242 @@ async function clearAllKPI(){
 }
 
 
+// ══════ PAGE 8: 異常率追蹤 ══════
+let anomWeekOffset = 0;
+let anomRegChart = null;
+let anomShipChart = null;
+
+// 取得指定日期屬於哪個半月區間 (1-15 為上半, 16-月底 為下半)
+function getHalfMonthRange(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+  let start, end;
+  if(day <= 15){
+    start = new Date(y, m, 1);
+    end = new Date(y, m, 15);
+  } else {
+    start = new Date(y, m, 16);
+    end = new Date(y, m+1, 0); // 該月最後一天
+  }
+  return {start: toStr(start), end: toStr(end), label: `${toStr(start)} ~ ${toStr(end)}`};
+}
+
+// 取得本週(以 anomWeekOffset)所對應的 key 與顯示資訊
+function getAnomWeekInfo(){
+  const mon = getMondayOf(anomWeekOffset);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  const monStr = toStr(mon);
+  const sunStr = toStr(sun);
+  // 出貨半月區間:用該週週四(中位)決定屬於哪半月,避免跨月混淆
+  const thu = new Date(mon); thu.setDate(mon.getDate()+3);
+  const halfMonth = getHalfMonthRange(toStr(thu));
+  return { monStr, sunStr, regLabel: `${monStr} ~ ${sunStr}`, halfMonth };
+}
+
+function getAnomSnapshot(monStr){
+  return (window._anomalyHistCache || []).find(h=>h.monStr===monStr) || null;
+}
+
+function loadAnomInputs(){
+  const info = getAnomWeekInfo();
+  document.getElementById('anom-week-label').textContent = weekLabel(getMondayOf(anomWeekOffset));
+  document.getElementById('anom-reg-range').textContent = '本週範圍：' + info.regLabel;
+  document.getElementById('anom-ship-range').textContent = '半月區間：' + info.halfMonth.label;
+
+  const snap = getAnomSnapshot(info.monStr);
+  if(snap){
+    document.getElementById('anom-week-status').textContent = '・已儲存';
+    // 載入儲存的資料
+    ['reg','ship'].forEach(prefix=>{
+      ['total','err','def','oth'].forEach(field=>{
+        const el = document.getElementById(`anom-${prefix}-${field}`);
+        if(el) el.value = (snap[prefix] && snap[prefix][field]!=null) ? snap[prefix][field] : '';
+      });
+    });
+    document.getElementById('anom-save-btn').textContent = '更新本週資料 →';
+  } else {
+    document.getElementById('anom-week-status').textContent = '・未儲存';
+    // 清空輸入框
+    ['reg','ship'].forEach(prefix=>{
+      ['total','err','def','oth'].forEach(field=>{
+        const el = document.getElementById(`anom-${prefix}-${field}`);
+        if(el) el.value = '';
+      });
+    });
+    document.getElementById('anom-save-btn').textContent = '儲存本週資料 →';
+  }
+  calcAnom();
+}
+
+function changeAnomWeek(target){
+  anomWeekOffset = (target===0) ? 0 : anomWeekOffset + target;
+  loadAnomInputs();
+}
+
+function calcAnom(){
+  ['reg','ship'].forEach(prefix=>{
+    const total = parseInt(document.getElementById(`anom-${prefix}-total`).value) || 0;
+    const err = parseInt(document.getElementById(`anom-${prefix}-err`).value) || 0;
+    const def = parseInt(document.getElementById(`anom-${prefix}-def`).value) || 0;
+    const oth = parseInt(document.getElementById(`anom-${prefix}-oth`).value) || 0;
+    const errPct = total>0 ? (err/total*100) : null;
+    const defPct = total>0 ? (def/total*100) : null;
+    const othPct = total>0 ? (oth/total*100) : null;
+    document.getElementById(`anom-${prefix}-err-pct`).textContent = errPct!==null ? errPct.toFixed(2)+'%' : '—';
+    document.getElementById(`anom-${prefix}-def-pct`).textContent = defPct!==null ? defPct.toFixed(2)+'%' : '—';
+    document.getElementById(`anom-${prefix}-oth-pct`).textContent = othPct!==null ? othPct.toFixed(2)+'%' : '—';
+  });
+}
+
+async function saveAnomData(){
+  const info = getAnomWeekInfo();
+  const readGroup = (prefix)=>({
+    total: parseInt(document.getElementById(`anom-${prefix}-total`).value) || 0,
+    err:   parseInt(document.getElementById(`anom-${prefix}-err`).value) || 0,
+    def:   parseInt(document.getElementById(`anom-${prefix}-def`).value) || 0,
+    oth:   parseInt(document.getElementById(`anom-${prefix}-oth`).value) || 0,
+  });
+  const reg = readGroup('reg');
+  const ship = readGroup('ship');
+  // 至少一邊有資料才存
+  const hasReg = reg.total>0 || reg.err>0 || reg.def>0 || reg.oth>0;
+  const hasShip = ship.total>0 || ship.err>0 || ship.def>0 || ship.oth>0;
+  if(!hasReg && !hasShip){
+    alert('請至少填寫一邊的資料');
+    return;
+  }
+  const wk = weekKey(getMondayOf(anomWeekOffset));
+  const label = wk+'（'+weekLabel(getMondayOf(anomWeekOffset))+'）';
+  const record = {
+    monStr: info.monStr,
+    sunStr: info.sunStr,
+    wk, label,
+    halfMonthStart: info.halfMonth.start,
+    halfMonthEnd: info.halfMonth.end,
+    reg, ship
+  };
+  showSaving(true);
+  await window.fbSetAnomalyHist(record);
+  window._anomalyHistCache = await window.fbGetAnomalyHist();
+  showSaving(false);
+  loadAnomInputs();
+  renderAnomTrend();
+  alert('✅ 異常率資料已儲存！');
+}
+
+async function deleteAnomRow(monStr){
+  if(!confirm('確定刪除這週的異常率記錄？')) return;
+  showSaving(true);
+  await window.fbDeleteAnomalyHist(monStr);
+  window._anomalyHistCache = await window.fbGetAnomalyHist();
+  showSaving(false);
+  loadAnomInputs();
+  renderAnomTrend();
+}
+
+function renderAnomTrend(){
+  const arr = window._anomalyHistCache || [];
+  const empty = document.getElementById('anom-trend-empty');
+  const wrap = document.getElementById('anom-trend-wrap');
+  if(arr.length===0){
+    empty.style.display = 'block';
+    wrap.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  wrap.style.display = 'block';
+
+  // 排序
+  const sorted = arr.slice().sort((a,b)=>a.monStr.localeCompare(b.monStr));
+  const labels = sorted.map(r => r.wk);
+
+  // 取每個 group 的三條線資料
+  const buildLines = (prefix)=>{
+    return ['err','def','oth'].map(field=>{
+      return sorted.map(r=>{
+        const g = r[prefix];
+        if(!g || !g.total || g.total===0) return null;
+        return +(g[field]/g.total*100).toFixed(2);
+      });
+    });
+  };
+
+  const colors = ['#993556','#BA7517','#534AB7'];
+  const nameTags = ['商品錯誤率','商品瑕疵率','其他問題率'];
+
+  const drawChart = (canvasId, lines, existingRef)=>{
+    const ctx = document.getElementById(canvasId);
+    if(existingRef) existingRef.destroy();
+    const allVals = lines.flat().filter(v=>v!==null);
+    const maxVal = allVals.length>0 ? Math.max(...allVals) : 1;
+    const yMax = Math.max(Math.ceil(maxVal*1.2*100)/100, 1);
+    return new Chart(ctx, {
+      type:'line',
+      data:{
+        labels,
+        datasets: lines.map((data,i)=>({
+          label: nameTags[i],
+          data,
+          borderColor: colors[i],
+          backgroundColor: colors[i],
+          borderWidth: 2,
+          pointRadius: 4,
+          tension: 0.3,
+          fill: false,
+          spanGaps: false
+        }))
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            mode:'index',intersect:false,
+            callbacks:{
+              label:(c)=>c.dataset.label+'：'+(c.parsed.y!==null?c.parsed.y.toFixed(2)+'%':'—')
+            }
+          }
+        },
+        scales:{
+          y:{
+            min:0, max:yMax,
+            ticks:{font:{size:11},callback:(v)=>v.toFixed(2)+'%'},
+            grid:{color:'rgba(0,0,0,0.05)'}
+          },
+          x:{ticks:{font:{size:11},autoSkip:false}}
+        }
+      }
+    });
+  };
+
+  const regLines = buildLines('reg');
+  const shipLines = buildLines('ship');
+  anomRegChart  = drawChart('anomRegChart',  regLines,  anomRegChart);
+  anomShipChart = drawChart('anomShipChart', shipLines, anomShipChart);
+
+  // 表格
+  const fmtPct = (g, field) => {
+    if(!g || !g.total || g.total===0) return '—';
+    return (g[field]/g.total*100).toFixed(2)+'%';
+  };
+  const fmtNum = (v) => v ? v.toLocaleString() : '—';
+  document.getElementById('anom-tbody').innerHTML = sorted.map(r => `<tr>
+    <td style="font-weight:500">${r.label}</td>
+    <td>${fmtNum(r.reg?.total)}</td>
+    <td>${fmtPct(r.reg,'err')}</td>
+    <td>${fmtPct(r.reg,'def')}</td>
+    <td>${fmtPct(r.reg,'oth')}</td>
+    <td>${fmtNum(r.ship?.total)}</td>
+    <td>${fmtPct(r.ship,'err')}</td>
+    <td>${fmtPct(r.ship,'def')}</td>
+    <td>${fmtPct(r.ship,'oth')}</td>
+    <td><button class="del-btn" onclick="deleteAnomRow('${r.monStr}')">✕</button></td>
+  </tr>`).join('');
+}
+
+
 // ══════ PAGE 6: 期間統計 ══════
 let currentQ = 2; // default to Q2 since user entered April data
 let currentQMode = 'quarter'; // 'quarter' | 'quick' | 'custom'
@@ -2460,12 +2835,13 @@ function renderPlatform(){
 // ══════ 備份 / 還原 ══════
 function exportBackup(){
   const data = {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
-    kpi_daily4:   window._dailyCache,
-    kpi_sat2:     window._satCache,
-    kpi_hist4:    window._histCache,
-    kpi_satHist:  window._satHistCache,
+    kpi_daily4:    window._dailyCache,
+    kpi_sat2:      window._satCache,
+    kpi_hist4:     window._histCache,
+    kpi_satHist:   window._satHistCache,
+    kpi_anomHist:  window._anomalyHistCache,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -2484,16 +2860,18 @@ async function importBackup(event){
     try {
       const data = JSON.parse(e.target.result);
       if(!data.version) throw new Error('格式不符');
-      const daily   = data.kpi_daily4  || [];
-      const sat     = data.kpi_sat2    || null;
-      const hist    = data.kpi_hist4   || [];
-      const satHist = data.kpi_satHist || [];
+      const daily    = data.kpi_daily4   || [];
+      const sat      = data.kpi_sat2     || null;
+      const hist     = data.kpi_hist4    || [];
+      const satHist  = data.kpi_satHist  || [];
+      const anomHist = data.kpi_anomHist || [];
 
       showSaving(true);
       const existingDates    = new Set(window._dailyCache.map(r=>r.date));
       const existingWks      = new Set(window._histCache.map(h=>h.wk));
       const existingSatMons  = new Set((window._satHistCache||[]).map(h=>h.monStr));
-      let addedD=0, addedH=0, addedS=0;
+      const existingAnomMons = new Set((window._anomalyHistCache||[]).map(h=>h.monStr));
+      let addedD=0, addedH=0, addedS=0, addedA=0;
       for(const r of daily){
         if(!existingDates.has(r.date)){ await window.fbSetDaily(r); addedD++; }
       }
@@ -2503,10 +2881,13 @@ async function importBackup(event){
       for(const s of satHist){
         if(s.monStr && !existingSatMons.has(s.monStr)){ await window.fbSetSatHist(s); addedS++; }
       }
+      for(const a of anomHist){
+        if(a.monStr && !existingAnomMons.has(a.monStr)){ await window.fbSetAnomalyHist(a); addedA++; }
+      }
       if(sat && !window._satCache) await window.fbSetSat(sat);
       await window.loadAllData();
       showSaving(false);
-      alert(`✅ 匯入完成！\n新增每日記錄：${addedD} 筆\n新增週KPI記錄：${addedH} 筆\n新增滿意度週快照：${addedS} 筆\n（已存在的資料不會被覆蓋）`);
+      alert(`✅ 匯入完成！\n新增每日記錄：${addedD} 筆\n新增週KPI記錄：${addedH} 筆\n新增滿意度週快照：${addedS} 筆\n新增異常率週快照：${addedA} 筆\n（已存在的資料不會被覆蓋）`);
       renderReply(); renderOrder(); renderQuarter(); renderTrend();
       loadSatInputs(); calcSat(); populateWeekSel(); renderKPI();
     } catch(err) {
