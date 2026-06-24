@@ -85,6 +85,19 @@ async function fbSetAnomalyHist(rec){
 async function fbDeleteAnomalyHist(monStr){
   await deleteDoc(doc(db,'anomalyHist',monStr));
 }
+async function fbGetAnomalyHistShip(){
+  const snap = await getDocs(collection(db,'anomalyHistShip'));
+  const arr = [];
+  snap.forEach(d => arr.push(d.data()));
+  arr.sort((a,b)=>a.hmStart.localeCompare(b.hmStart));
+  return arr;
+}
+async function fbSetAnomalyHistShip(rec){
+  await setDoc(doc(db,'anomalyHistShip',rec.hmStart), rec);
+}
+async function fbDeleteAnomalyHistShip(hmStart){
+  await deleteDoc(doc(db,'anomalyHistShip',hmStart));
+}
 
 // ── Expose everything to global scope ──
 window.fbGetDaily    = fbGetDaily;
@@ -100,6 +113,9 @@ window.fbDeleteSatHist = fbDeleteSatHist;
 window.fbGetAnomalyHist    = fbGetAnomalyHist;
 window.fbSetAnomalyHist    = fbSetAnomalyHist;
 window.fbDeleteAnomalyHist = fbDeleteAnomalyHist;
+window.fbGetAnomalyHistShip    = fbGetAnomalyHistShip;
+window.fbSetAnomalyHistShip    = fbSetAnomalyHistShip;
+window.fbDeleteAnomalyHistShip = fbDeleteAnomalyHistShip;
 
 // Cache variables exposed globally
 window._dailyCache  = [];
@@ -107,6 +123,7 @@ window._histCache   = [];
 window._satCache    = null;
 window._satHistCache= [];
 window._anomalyHistCache = [];
+window._anomalyHistShipCache = [];
 
 // loadAllData exposed globally
 window.loadAllData = async function(){
@@ -115,6 +132,7 @@ window.loadAllData = async function(){
   window._satCache     = await fbGetSat();
   window._satHistCache = await fbGetSatHist();
   window._anomalyHistCache = await fbGetAnomalyHist();
+  window._anomalyHistShipCache = await fbGetAnomalyHistShip();
 };
 
 // Signal that Firebase is ready
@@ -870,25 +888,20 @@ tr:last-child td{border-bottom:none;}
   <h1 class="page-title">異常率追蹤</h1>
   <p class="page-sub">追蹤商品錯誤、瑕疵與其他問題的發生率，分「登記日期」與「出貨日期」雙視角</p>
 
-  <!-- 週次切換 -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
-    <p class="sec" style="margin:0">查看週次（<span id="anom-week-label">—</span>）<span id="anom-week-status" style="font-size:10px;color:#aaa;margin-left:6px;"></span></p>
-    <div style="display:flex;gap:6px;">
-      <button class="bsm" onclick="changeAnomWeek(-1)">← 上週</button>
-      <button class="bsm" onclick="changeAnomWeek(0)">本週</button>
-      <button class="bsm" onclick="changeAnomWeek(1)">下週 →</button>
-    </div>
-  </div>
-
   <!-- 雙欄輸入 -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem;margin-bottom:1rem;">
 
     <!-- 左:登記日期 -->
     <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;">
-        <h3 style="margin:0;font-size:16px;font-weight:500;">登記日期</h3>
-        <span style="font-size:11px;color:#888780;">本週（週為單位）</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;font-size:16px;font-weight:500;">登記日期<span style="font-size:11px;color:#888780;font-weight:400;margin-left:6px;">（週為單位）</span></h3>
+        <div style="display:flex;gap:5px;">
+          <button class="bsm" onclick="changeAnomRegWeek(-1)" style="padding:3px 8px;font-size:11px;">←</button>
+          <button class="bsm" onclick="changeAnomRegWeek(0)" style="padding:3px 8px;font-size:11px;">本週</button>
+          <button class="bsm" onclick="changeAnomRegWeek(1)" style="padding:3px 8px;font-size:11px;">→</button>
+        </div>
       </div>
+      <div style="font-size:12px;color:#185FA5;font-weight:500;margin-bottom:2px;"><span id="anom-reg-label">—</span> <span id="anom-reg-status" style="font-size:10px;color:#aaa;margin-left:6px;font-weight:400;"></span></div>
       <div style="font-size:11px;color:#aaa;margin-bottom:1rem;" id="anom-reg-range">—</div>
 
       <div class="ig"><label>本週總出貨量</label><input type="number" id="anom-reg-total" min="0" oninput="calcAnom()"></div>
@@ -901,14 +914,23 @@ tr:last-child td{border-bottom:none;}
         <div class="krow"><span>商品瑕疵率</span><span id="anom-reg-def-pct" style="font-weight:500;color:#BA7517;">—</span></div>
         <div class="krow"><span>其他問題率</span><span id="anom-reg-oth-pct" style="font-weight:500;color:#534AB7;">—</span></div>
       </div>
+
+      <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+        <button class="bp bsm" onclick="saveAnomReg()" id="anom-save-reg-btn" style="font-size:12px;">儲存登記資料 →</button>
+      </div>
     </div>
 
     <!-- 右:出貨日期 -->
     <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;">
-        <h3 style="margin:0;font-size:16px;font-weight:500;">出貨日期</h3>
-        <span style="font-size:11px;color:#888780;">半月累計</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;font-size:16px;font-weight:500;">出貨日期<span style="font-size:11px;color:#888780;font-weight:400;margin-left:6px;">（半月累計）</span></h3>
+        <div style="display:flex;gap:5px;">
+          <button class="bsm" onclick="changeAnomShipHM(-1)" style="padding:3px 8px;font-size:11px;">←</button>
+          <button class="bsm" onclick="changeAnomShipHM(0)" style="padding:3px 8px;font-size:11px;">本期</button>
+          <button class="bsm" onclick="changeAnomShipHM(1)" style="padding:3px 8px;font-size:11px;">→</button>
+        </div>
       </div>
+      <div style="font-size:12px;color:#185FA5;font-weight:500;margin-bottom:2px;"><span id="anom-ship-label">—</span> <span id="anom-ship-status" style="font-size:10px;color:#aaa;margin-left:6px;font-weight:400;"></span></div>
       <div style="font-size:11px;color:#aaa;margin-bottom:1rem;" id="anom-ship-range">—</div>
 
       <div class="ig"><label>半月累計總出貨量</label><input type="number" id="anom-ship-total" min="0" oninput="calcAnom()"></div>
@@ -921,12 +943,11 @@ tr:last-child td{border-bottom:none;}
         <div class="krow"><span>商品瑕疵率</span><span id="anom-ship-def-pct" style="font-weight:500;color:#BA7517;">—</span></div>
         <div class="krow"><span>其他問題率</span><span id="anom-ship-oth-pct" style="font-weight:500;color:#534AB7;">—</span></div>
       </div>
-    </div>
-  </div>
 
-  <!-- 儲存按鈕 -->
-  <div style="display:flex;justify-content:flex-end;margin-bottom:1.5rem;">
-    <button class="bp bsm" onclick="saveAnomData()" id="anom-save-btn">儲存本週資料 →</button>
+      <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+        <button class="bp bsm" onclick="saveAnomShip()" id="anom-save-ship-btn" style="font-size:12px;">儲存出貨資料 →</button>
+      </div>
+    </div>
   </div>
 
   <!-- 歷週趨勢圖 -->
@@ -966,14 +987,13 @@ tr:last-child td{border-bottom:none;}
       <table>
         <thead>
           <tr>
-            <th rowspan="2">週次</th>
-            <th colspan="4" style="text-align:center;">登記日期</th>
-            <th colspan="4" style="text-align:center;">出貨日期（半月累計）</th>
-            <th rowspan="2">操作</th>
-          </tr>
-          <tr>
-            <th>總量</th><th>錯誤率</th><th>瑕疵率</th><th>其他</th>
-            <th>總量</th><th>錯誤率</th><th>瑕疵率</th><th>其他</th>
+            <th>區間</th>
+            <th>類別</th>
+            <th>總量</th>
+            <th>錯誤率</th>
+            <th>瑕疵率</th>
+            <th>其他</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody id="anom-tbody"></tbody>
@@ -1907,11 +1927,12 @@ async function clearAllKPI(){
 
 
 // ══════ PAGE 8: 異常率追蹤 ══════
-let anomWeekOffset = 0;
+let anomRegOffset = 0;        // 登記日期 — 週次偏移(0=本週,週四起算)
+let anomShipHMOffset = 0;     // 出貨日期 — 半月偏移(0=本半月,以今天決定)
 let anomRegChart = null;
 let anomShipChart = null;
 
-// 取得指定日期屬於哪個半月區間 (1-15 為上半, 16-月底 為下半)
+// ── Half-month range tools ──
 function getHalfMonthRange(dateStr){
   const d = new Date(dateStr+'T00:00:00');
   const y = d.getFullYear();
@@ -1923,28 +1944,55 @@ function getHalfMonthRange(dateStr){
     end = new Date(y, m, 15);
   } else {
     start = new Date(y, m, 16);
-    end = new Date(y, m+1, 0); // 該月最後一天
+    end = new Date(y, m+1, 0);
   }
   return {start: toStr(start), end: toStr(end), label: `${toStr(start)} ~ ${toStr(end)}`};
 }
 
-// 取得「以週四起算」的週次:offset=0 為包含今天的那一週(週四 ~ 下週三)
-// 規則:今天若是週四 ~ 週日 → 該週四為起點;週一 ~ 週三 → 上週四為起點
+// 取得指定偏移的半月區間:offset=0 為本半月,-1 為上半月,+1 為下半月
+function getAnomHalfMonthInfo(offset){
+  const today = new Date();
+  // 先找今天所在半月的起始
+  let cur = getHalfMonthRange(toStr(today));
+  // 用「往前 / 往後」一個半月的方式移動
+  // 簡單做法:取一個基準起始日,加上 offset 個半月
+  let startD = new Date(cur.start+'T00:00:00');
+  for(let i=0;i<Math.abs(offset);i++){
+    if(offset > 0){
+      // 移到下一個半月
+      if(startD.getDate() === 1){
+        startD = new Date(startD.getFullYear(), startD.getMonth(), 16);
+      } else {
+        startD = new Date(startD.getFullYear(), startD.getMonth()+1, 1);
+      }
+    } else {
+      // 移到上一個半月
+      if(startD.getDate() === 16){
+        startD = new Date(startD.getFullYear(), startD.getMonth(), 1);
+      } else {
+        // 是某月 1 日 → 上個月 16
+        const prev = new Date(startD.getFullYear(), startD.getMonth()-1, 16);
+        startD = prev;
+      }
+    }
+  }
+  const start = toStr(startD);
+  const range = getHalfMonthRange(start);
+  // mdLabel: 例如「2026 年 5 月上半」
+  const half = startD.getDate()<=15 ? '上半' : '下半';
+  const mdLabel = `${startD.getFullYear()} 年 ${startD.getMonth()+1} 月${half}`;
+  return {
+    hmStart: range.start,
+    hmEnd: range.end,
+    hmLabel: range.label,
+    mdLabel
+  };
+}
+
+// ── Thursday-anchor weekly tools (for 登記日期)──
 function getAnomThursdayOf(offset){
   const now = new Date();
-  const day = now.getDay(); // 0=日 1=一 ... 4=四 ... 6=六
-  // 距離本週四的天數差:目標 day=4
-  // day>=4: 今天已過或剛到週四 → 本週四 = 今天 - (day-4)
-  // day<4:  尚未到本週四(週一二三/日) → 上週四 = 今天 - (day+3)
-  //   特別處理:day=0 (週日) → 4天前的週四,即 0+3=3 → 今天-3 是週四的下下次?
-  //   重新整理:我們要找「最近的、不晚於今天的週四」
-  //   day=0(日): 上週四在 0+3=3 天前  ✓ (週日 - 3 = 週四)
-  //   day=1(一): 上週四在 1+3=4 天前  ✓
-  //   day=2(二): 上週四在 2+3=5 天前  ✓
-  //   day=3(三): 上週四在 3+3=6 天前  ✓
-  //   day=4(四): 本週四 = 今天          (day-4=0)
-  //   day=5(五): 本週四在 1 天前        (day-4=1)
-  //   day=6(六): 本週四在 2 天前        (day-4=2)
+  const day = now.getDay();
   const diff = day >= 4 ? (day - 4) : (day + 3);
   const thu = new Date(now);
   thu.setDate(now.getDate() - diff + offset * 7);
@@ -1952,72 +2000,85 @@ function getAnomThursdayOf(offset){
   return thu;
 }
 
-// 取得本週(以 anomWeekOffset)所對應的 key 與顯示資訊
-function getAnomWeekInfo(){
-  // 報告週起點 = 週四,結束 = 下週三
-  const thu = getAnomThursdayOf(anomWeekOffset);
+function getAnomRegInfo(){
+  const thu = getAnomThursdayOf(anomRegOffset);
   const wed = new Date(thu); wed.setDate(thu.getDate()+6);
   const thuStr = toStr(thu);
   const wedStr = toStr(wed);
-  // 出貨半月區間:用該報告週中位日(週日)決定屬於哪半月
-  const sun = new Date(thu); sun.setDate(thu.getDate()+3);
-  const halfMonth = getHalfMonthRange(toStr(sun));
-  // 顯示用標籤:用週四的月/日 ~ 週三的月/日
   const mdLabel = `${thu.getMonth()+1}/${thu.getDate()} ～ ${wed.getMonth()+1}/${wed.getDate()}`;
-  // ISO 風格 wk key (用該週四的年週)
   const y = thu.getFullYear();
   const jan1 = new Date(y,0,1);
   const wkNum = Math.ceil(((thu-jan1)/86400000+jan1.getDay()+1)/7);
   const wkKey = `${y}-W${String(wkNum).padStart(2,'0')}`;
-  return {
-    thuStr, wedStr,
-    monStr: thuStr,           // 用週四為儲存 key
-    sunStr: wedStr,
-    regLabel: `${thuStr} ~ ${wedStr}`,
-    mdLabel,
-    wkKey,
-    halfMonth
-  };
+  return { thuStr, wedStr, mdLabel, wkKey };
 }
 
-function getAnomSnapshot(monStr){
-  return (window._anomalyHistCache || []).find(h=>h.monStr===monStr) || null;
+// ── 個別讀寫 ──
+function getAnomRegSnapshot(thuStr){
+  return (window._anomalyHistCache || []).find(h=>h.monStr===thuStr) || null;
+}
+function getAnomShipSnapshot(hmStart){
+  return (window._anomalyHistShipCache || []).find(h=>h.hmStart===hmStart) || null;
 }
 
-function loadAnomInputs(){
-  const info = getAnomWeekInfo();
-  document.getElementById('anom-week-label').textContent = info.mdLabel;
-  document.getElementById('anom-reg-range').textContent = '本週範圍：週四 ' + info.thuStr + ' ~ 週三 ' + info.wedStr;
-  document.getElementById('anom-ship-range').textContent = '半月區間：' + info.halfMonth.label;
-
-  const snap = getAnomSnapshot(info.monStr);
-  if(snap){
-    document.getElementById('anom-week-status').textContent = '・已儲存';
-    // 載入儲存的資料
-    ['reg','ship'].forEach(prefix=>{
-      ['total','err','def','oth'].forEach(field=>{
-        const el = document.getElementById(`anom-${prefix}-${field}`);
-        if(el) el.value = (snap[prefix] && snap[prefix][field]!=null) ? snap[prefix][field] : '';
-      });
+function loadAnomRegInputs(){
+  const info = getAnomRegInfo();
+  document.getElementById('anom-reg-label').textContent = info.mdLabel;
+  document.getElementById('anom-reg-range').textContent = '週四 ' + info.thuStr + ' ~ 週三 ' + info.wedStr;
+  const snap = getAnomRegSnapshot(info.thuStr);
+  if(snap && snap.reg){
+    document.getElementById('anom-reg-status').textContent = '・已儲存';
+    ['total','err','def','oth'].forEach(field=>{
+      const el = document.getElementById(`anom-reg-${field}`);
+      if(el) el.value = (snap.reg[field]!=null) ? snap.reg[field] : '';
     });
-    document.getElementById('anom-save-btn').textContent = '更新本週資料 →';
+    document.getElementById('anom-save-reg-btn').textContent = '更新登記資料 →';
   } else {
-    document.getElementById('anom-week-status').textContent = '・未儲存';
-    // 清空輸入框
-    ['reg','ship'].forEach(prefix=>{
-      ['total','err','def','oth'].forEach(field=>{
-        const el = document.getElementById(`anom-${prefix}-${field}`);
-        if(el) el.value = '';
-      });
+    document.getElementById('anom-reg-status').textContent = '・未儲存';
+    ['total','err','def','oth'].forEach(field=>{
+      const el = document.getElementById(`anom-reg-${field}`);
+      if(el) el.value = '';
     });
-    document.getElementById('anom-save-btn').textContent = '儲存本週資料 →';
+    document.getElementById('anom-save-reg-btn').textContent = '儲存登記資料 →';
   }
   calcAnom();
 }
 
-function changeAnomWeek(target){
-  anomWeekOffset = (target===0) ? 0 : anomWeekOffset + target;
-  loadAnomInputs();
+function loadAnomShipInputs(){
+  const info = getAnomHalfMonthInfo(anomShipHMOffset);
+  document.getElementById('anom-ship-label').textContent = info.mdLabel;
+  document.getElementById('anom-ship-range').textContent = info.hmLabel;
+  const snap = getAnomShipSnapshot(info.hmStart);
+  if(snap && snap.ship){
+    document.getElementById('anom-ship-status').textContent = '・已儲存';
+    ['total','err','def','oth'].forEach(field=>{
+      const el = document.getElementById(`anom-ship-${field}`);
+      if(el) el.value = (snap.ship[field]!=null) ? snap.ship[field] : '';
+    });
+    document.getElementById('anom-save-ship-btn').textContent = '更新出貨資料 →';
+  } else {
+    document.getElementById('anom-ship-status').textContent = '・未儲存';
+    ['total','err','def','oth'].forEach(field=>{
+      const el = document.getElementById(`anom-ship-${field}`);
+      if(el) el.value = '';
+    });
+    document.getElementById('anom-save-ship-btn').textContent = '儲存出貨資料 →';
+  }
+  calcAnom();
+}
+
+function loadAnomInputs(){
+  loadAnomRegInputs();
+  loadAnomShipInputs();
+}
+
+function changeAnomRegWeek(target){
+  anomRegOffset = (target===0) ? 0 : anomRegOffset + target;
+  loadAnomRegInputs();
+}
+function changeAnomShipHM(target){
+  anomShipHMOffset = (target===0) ? 0 : anomShipHMOffset + target;
+  loadAnomShipInputs();
 }
 
 function calcAnom(){
@@ -2035,57 +2096,87 @@ function calcAnom(){
   });
 }
 
-async function saveAnomData(){
-  const info = getAnomWeekInfo();
-  const readGroup = (prefix)=>({
-    total: parseInt(document.getElementById(`anom-${prefix}-total`).value) || 0,
-    err:   parseInt(document.getElementById(`anom-${prefix}-err`).value) || 0,
-    def:   parseInt(document.getElementById(`anom-${prefix}-def`).value) || 0,
-    oth:   parseInt(document.getElementById(`anom-${prefix}-oth`).value) || 0,
-  });
-  const reg = readGroup('reg');
-  const ship = readGroup('ship');
-  // 至少一邊有資料才存
-  const hasReg = reg.total>0 || reg.err>0 || reg.def>0 || reg.oth>0;
-  const hasShip = ship.total>0 || ship.err>0 || ship.def>0 || ship.oth>0;
-  if(!hasReg && !hasShip){
-    alert('請至少填寫一邊的資料');
+async function saveAnomReg(){
+  const info = getAnomRegInfo();
+  const reg = {
+    total: parseInt(document.getElementById('anom-reg-total').value) || 0,
+    err:   parseInt(document.getElementById('anom-reg-err').value) || 0,
+    def:   parseInt(document.getElementById('anom-reg-def').value) || 0,
+    oth:   parseInt(document.getElementById('anom-reg-oth').value) || 0,
+  };
+  if(reg.total===0 && reg.err===0 && reg.def===0 && reg.oth===0){
+    alert('請至少填寫一個欄位');
     return;
   }
-  const wk = info.wkKey;
-  const label = wk+'（'+info.mdLabel+'）';
   const record = {
-    monStr: info.monStr,
-    sunStr: info.sunStr,
-    wk, label,
-    halfMonthStart: info.halfMonth.start,
-    halfMonthEnd: info.halfMonth.end,
-    reg, ship
+    monStr: info.thuStr,  // 用週四日期當 key
+    sunStr: info.wedStr,
+    wk: info.wkKey,
+    label: info.wkKey+'（'+info.mdLabel+'）',
+    reg
   };
   showSaving(true);
   await window.fbSetAnomalyHist(record);
   window._anomalyHistCache = await window.fbGetAnomalyHist();
   showSaving(false);
-  loadAnomInputs();
+  loadAnomRegInputs();
   renderAnomTrend();
-  alert('✅ 異常率資料已儲存！');
+  alert('✅ 登記資料已儲存！');
 }
 
-async function deleteAnomRow(monStr){
-  if(!confirm('確定刪除這週的異常率記錄？')) return;
+async function saveAnomShip(){
+  const info = getAnomHalfMonthInfo(anomShipHMOffset);
+  const ship = {
+    total: parseInt(document.getElementById('anom-ship-total').value) || 0,
+    err:   parseInt(document.getElementById('anom-ship-err').value) || 0,
+    def:   parseInt(document.getElementById('anom-ship-def').value) || 0,
+    oth:   parseInt(document.getElementById('anom-ship-oth').value) || 0,
+  };
+  if(ship.total===0 && ship.err===0 && ship.def===0 && ship.oth===0){
+    alert('請至少填寫一個欄位');
+    return;
+  }
+  const record = {
+    hmStart: info.hmStart,
+    hmEnd: info.hmEnd,
+    label: info.mdLabel+'（'+info.hmLabel+'）',
+    ship
+  };
   showSaving(true);
-  await window.fbDeleteAnomalyHist(monStr);
+  await window.fbSetAnomalyHistShip(record);
+  window._anomalyHistShipCache = await window.fbGetAnomalyHistShip();
+  showSaving(false);
+  loadAnomShipInputs();
+  renderAnomTrend();
+  alert('✅ 出貨資料已儲存！');
+}
+
+async function deleteAnomRegRow(thuStr){
+  if(!confirm('確定刪除這週的登記資料？')) return;
+  showSaving(true);
+  await window.fbDeleteAnomalyHist(thuStr);
   window._anomalyHistCache = await window.fbGetAnomalyHist();
   showSaving(false);
-  loadAnomInputs();
+  loadAnomRegInputs();
+  renderAnomTrend();
+}
+
+async function deleteAnomShipRow(hmStart){
+  if(!confirm('確定刪除這個半月的出貨資料？')) return;
+  showSaving(true);
+  await window.fbDeleteAnomalyHistShip(hmStart);
+  window._anomalyHistShipCache = await window.fbGetAnomalyHistShip();
+  showSaving(false);
+  loadAnomShipInputs();
   renderAnomTrend();
 }
 
 function renderAnomTrend(){
-  const arr = window._anomalyHistCache || [];
+  const regArr = window._anomalyHistCache || [];
+  const shipArr = window._anomalyHistShipCache || [];
   const empty = document.getElementById('anom-trend-empty');
   const wrap = document.getElementById('anom-trend-wrap');
-  if(arr.length===0){
+  if(regArr.length===0 && shipArr.length===0){
     empty.style.display = 'block';
     wrap.style.display = 'none';
     return;
@@ -2093,25 +2184,10 @@ function renderAnomTrend(){
   empty.style.display = 'none';
   wrap.style.display = 'block';
 
-  // 排序
-  const sorted = arr.slice().sort((a,b)=>a.monStr.localeCompare(b.monStr));
-  const labels = sorted.map(r => r.wk);
-
-  // 取每個 group 的三條線資料
-  const buildLines = (prefix)=>{
-    return ['err','def','oth'].map(field=>{
-      return sorted.map(r=>{
-        const g = r[prefix];
-        if(!g || !g.total || g.total===0) return null;
-        return +(g[field]/g.total*100).toFixed(2);
-      });
-    });
-  };
-
   const colors = ['#993556','#BA7517','#534AB7'];
   const nameTags = ['商品錯誤率','商品瑕疵率','其他問題率'];
 
-  const drawChart = (canvasId, lines, existingRef)=>{
+  const drawChart = (canvasId, labels, lines, existingRef)=>{
     const ctx = document.getElementById(canvasId);
     if(existingRef) existingRef.destroy();
     const allVals = lines.flat().filter(v=>v!==null);
@@ -2156,29 +2232,61 @@ function renderAnomTrend(){
     });
   };
 
-  const regLines = buildLines('reg');
-  const shipLines = buildLines('ship');
-  anomRegChart  = drawChart('anomRegChart',  regLines,  anomRegChart);
-  anomShipChart = drawChart('anomShipChart', shipLines, anomShipChart);
+  // 登記日期 chart
+  const regSorted = regArr.slice().sort((a,b)=>a.monStr.localeCompare(b.monStr));
+  const regLabels = regSorted.map(r => r.wk || r.monStr);
+  const regLines = ['err','def','oth'].map(field=>regSorted.map(r=>{
+    const g = r.reg;
+    if(!g || !g.total || g.total===0) return null;
+    return +(g[field]/g.total*100).toFixed(2);
+  }));
+  anomRegChart = drawChart('anomRegChart', regLabels, regLines, anomRegChart);
 
-  // 表格
+  // 出貨日期 chart
+  const shipSorted = shipArr.slice().sort((a,b)=>a.hmStart.localeCompare(b.hmStart));
+  const shipLabels = shipSorted.map(r => {
+    // 簡短標籤:'5月上' / '5月下'
+    const d = new Date(r.hmStart+'T00:00:00');
+    return `${d.getMonth()+1}月${d.getDate()===1?'上':'下'}`;
+  });
+  const shipLines = ['err','def','oth'].map(field=>shipSorted.map(r=>{
+    const g = r.ship;
+    if(!g || !g.total || g.total===0) return null;
+    return +(g[field]/g.total*100).toFixed(2);
+  }));
+  anomShipChart = drawChart('anomShipChart', shipLabels, shipLines, anomShipChart);
+
+  // 表格(登記和出貨分開顯示)
   const fmtPct = (g, field) => {
     if(!g || !g.total || g.total===0) return '—';
     return (g[field]/g.total*100).toFixed(2)+'%';
   };
   const fmtNum = (v) => v ? v.toLocaleString() : '—';
-  document.getElementById('anom-tbody').innerHTML = sorted.map(r => `<tr>
-    <td style="font-weight:500">${r.label}</td>
-    <td>${fmtNum(r.reg?.total)}</td>
-    <td>${fmtPct(r.reg,'err')}</td>
-    <td>${fmtPct(r.reg,'def')}</td>
-    <td>${fmtPct(r.reg,'oth')}</td>
-    <td>${fmtNum(r.ship?.total)}</td>
-    <td>${fmtPct(r.ship,'err')}</td>
-    <td>${fmtPct(r.ship,'def')}</td>
-    <td>${fmtPct(r.ship,'oth')}</td>
-    <td><button class="del-btn" onclick="deleteAnomRow('${r.monStr}')">✕</button></td>
-  </tr>`).join('');
+  // 用 hmStart 把 ship 資料分群,以便和 reg 拼表(這裡簡化處理:直接兩個區塊)
+  let html = '';
+  if(regSorted.length>0){
+    html += regSorted.map(r => `<tr>
+      <td style="font-weight:500">${r.label || r.wk || r.monStr}</td>
+      <td><span style="background:#E8F0FB;color:#1a4a8a;font-size:10px;padding:1px 6px;border-radius:4px;">登記</span></td>
+      <td>${fmtNum(r.reg?.total)}</td>
+      <td>${fmtPct(r.reg,'err')}</td>
+      <td>${fmtPct(r.reg,'def')}</td>
+      <td>${fmtPct(r.reg,'oth')}</td>
+      <td><button class="del-btn" onclick="deleteAnomRegRow('${r.monStr}')">✕</button></td>
+    </tr>`).join('');
+  }
+  if(shipSorted.length>0){
+    html += shipSorted.map(r => `<tr>
+      <td style="font-weight:500">${r.label || r.hmStart}</td>
+      <td><span style="background:#FFF3E0;color:#8a4a00;font-size:10px;padding:1px 6px;border-radius:4px;">出貨</span></td>
+      <td>${fmtNum(r.ship?.total)}</td>
+      <td>${fmtPct(r.ship,'err')}</td>
+      <td>${fmtPct(r.ship,'def')}</td>
+      <td>${fmtPct(r.ship,'oth')}</td>
+      <td><button class="del-btn" onclick="deleteAnomShipRow('${r.hmStart}')">✕</button></td>
+    </tr>`).join('');
+  }
+  document.getElementById('anom-tbody').innerHTML = html;
 }
 
 
@@ -2875,13 +2983,14 @@ function renderPlatform(){
 // ══════ 備份 / 還原 ══════
 function exportBackup(){
   const data = {
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
-    kpi_daily4:    window._dailyCache,
-    kpi_sat2:      window._satCache,
-    kpi_hist4:     window._histCache,
-    kpi_satHist:   window._satHistCache,
-    kpi_anomHist:  window._anomalyHistCache,
+    kpi_daily4:       window._dailyCache,
+    kpi_sat2:         window._satCache,
+    kpi_hist4:        window._histCache,
+    kpi_satHist:      window._satHistCache,
+    kpi_anomHist:     window._anomalyHistCache,
+    kpi_anomHistShip: window._anomalyHistShipCache,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -2905,13 +3014,15 @@ async function importBackup(event){
       const hist     = data.kpi_hist4    || [];
       const satHist  = data.kpi_satHist  || [];
       const anomHist = data.kpi_anomHist || [];
+      const anomHistShip = data.kpi_anomHistShip || [];
 
       showSaving(true);
       const existingDates    = new Set(window._dailyCache.map(r=>r.date));
       const existingWks      = new Set(window._histCache.map(h=>h.wk));
       const existingSatMons  = new Set((window._satHistCache||[]).map(h=>h.monStr));
       const existingAnomMons = new Set((window._anomalyHistCache||[]).map(h=>h.monStr));
-      let addedD=0, addedH=0, addedS=0, addedA=0;
+      const existingAnomHm   = new Set((window._anomalyHistShipCache||[]).map(h=>h.hmStart));
+      let addedD=0, addedH=0, addedS=0, addedA=0, addedAS=0;
       for(const r of daily){
         if(!existingDates.has(r.date)){ await window.fbSetDaily(r); addedD++; }
       }
@@ -2924,10 +3035,13 @@ async function importBackup(event){
       for(const a of anomHist){
         if(a.monStr && !existingAnomMons.has(a.monStr)){ await window.fbSetAnomalyHist(a); addedA++; }
       }
+      for(const a of anomHistShip){
+        if(a.hmStart && !existingAnomHm.has(a.hmStart)){ await window.fbSetAnomalyHistShip(a); addedAS++; }
+      }
       if(sat && !window._satCache) await window.fbSetSat(sat);
       await window.loadAllData();
       showSaving(false);
-      alert(`✅ 匯入完成！\n新增每日記錄：${addedD} 筆\n新增週KPI記錄：${addedH} 筆\n新增滿意度週快照：${addedS} 筆\n新增異常率週快照：${addedA} 筆\n（已存在的資料不會被覆蓋）`);
+      alert(`✅ 匯入完成！\n新增每日記錄：${addedD} 筆\n新增週KPI記錄：${addedH} 筆\n新增滿意度週快照：${addedS} 筆\n新增異常率登記：${addedA} 筆\n新增異常率出貨：${addedAS} 筆\n（已存在的資料不會被覆蓋）`);
       renderReply(); renderOrder(); renderQuarter(); renderTrend();
       loadSatInputs(); calcSat(); populateWeekSel(); renderKPI();
     } catch(err) {
