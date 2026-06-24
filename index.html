@@ -1928,16 +1928,56 @@ function getHalfMonthRange(dateStr){
   return {start: toStr(start), end: toStr(end), label: `${toStr(start)} ~ ${toStr(end)}`};
 }
 
+// 取得「以週四起算」的週次:offset=0 為包含今天的那一週(週四 ~ 下週三)
+// 規則:今天若是週四 ~ 週日 → 該週四為起點;週一 ~ 週三 → 上週四為起點
+function getAnomThursdayOf(offset){
+  const now = new Date();
+  const day = now.getDay(); // 0=日 1=一 ... 4=四 ... 6=六
+  // 距離本週四的天數差:目標 day=4
+  // day>=4: 今天已過或剛到週四 → 本週四 = 今天 - (day-4)
+  // day<4:  尚未到本週四(週一二三/日) → 上週四 = 今天 - (day+3)
+  //   特別處理:day=0 (週日) → 4天前的週四,即 0+3=3 → 今天-3 是週四的下下次?
+  //   重新整理:我們要找「最近的、不晚於今天的週四」
+  //   day=0(日): 上週四在 0+3=3 天前  ✓ (週日 - 3 = 週四)
+  //   day=1(一): 上週四在 1+3=4 天前  ✓
+  //   day=2(二): 上週四在 2+3=5 天前  ✓
+  //   day=3(三): 上週四在 3+3=6 天前  ✓
+  //   day=4(四): 本週四 = 今天          (day-4=0)
+  //   day=5(五): 本週四在 1 天前        (day-4=1)
+  //   day=6(六): 本週四在 2 天前        (day-4=2)
+  const diff = day >= 4 ? (day - 4) : (day + 3);
+  const thu = new Date(now);
+  thu.setDate(now.getDate() - diff + offset * 7);
+  thu.setHours(0,0,0,0);
+  return thu;
+}
+
 // 取得本週(以 anomWeekOffset)所對應的 key 與顯示資訊
 function getAnomWeekInfo(){
-  const mon = getMondayOf(anomWeekOffset);
-  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-  const monStr = toStr(mon);
-  const sunStr = toStr(sun);
-  // 出貨半月區間:用該週週四(中位)決定屬於哪半月,避免跨月混淆
-  const thu = new Date(mon); thu.setDate(mon.getDate()+3);
-  const halfMonth = getHalfMonthRange(toStr(thu));
-  return { monStr, sunStr, regLabel: `${monStr} ~ ${sunStr}`, halfMonth };
+  // 報告週起點 = 週四,結束 = 下週三
+  const thu = getAnomThursdayOf(anomWeekOffset);
+  const wed = new Date(thu); wed.setDate(thu.getDate()+6);
+  const thuStr = toStr(thu);
+  const wedStr = toStr(wed);
+  // 出貨半月區間:用該報告週中位日(週日)決定屬於哪半月
+  const sun = new Date(thu); sun.setDate(thu.getDate()+3);
+  const halfMonth = getHalfMonthRange(toStr(sun));
+  // 顯示用標籤:用週四的月/日 ~ 週三的月/日
+  const mdLabel = `${thu.getMonth()+1}/${thu.getDate()} ～ ${wed.getMonth()+1}/${wed.getDate()}`;
+  // ISO 風格 wk key (用該週四的年週)
+  const y = thu.getFullYear();
+  const jan1 = new Date(y,0,1);
+  const wkNum = Math.ceil(((thu-jan1)/86400000+jan1.getDay()+1)/7);
+  const wkKey = `${y}-W${String(wkNum).padStart(2,'0')}`;
+  return {
+    thuStr, wedStr,
+    monStr: thuStr,           // 用週四為儲存 key
+    sunStr: wedStr,
+    regLabel: `${thuStr} ~ ${wedStr}`,
+    mdLabel,
+    wkKey,
+    halfMonth
+  };
 }
 
 function getAnomSnapshot(monStr){
@@ -1946,8 +1986,8 @@ function getAnomSnapshot(monStr){
 
 function loadAnomInputs(){
   const info = getAnomWeekInfo();
-  document.getElementById('anom-week-label').textContent = weekLabel(getMondayOf(anomWeekOffset));
-  document.getElementById('anom-reg-range').textContent = '本週範圍：' + info.regLabel;
+  document.getElementById('anom-week-label').textContent = info.mdLabel;
+  document.getElementById('anom-reg-range').textContent = '本週範圍：週四 ' + info.thuStr + ' ~ 週三 ' + info.wedStr;
   document.getElementById('anom-ship-range').textContent = '半月區間：' + info.halfMonth.label;
 
   const snap = getAnomSnapshot(info.monStr);
@@ -2012,8 +2052,8 @@ async function saveAnomData(){
     alert('請至少填寫一邊的資料');
     return;
   }
-  const wk = weekKey(getMondayOf(anomWeekOffset));
-  const label = wk+'（'+weekLabel(getMondayOf(anomWeekOffset))+'）';
+  const wk = info.wkKey;
+  const label = wk+'（'+info.mdLabel+'）';
   const record = {
     monStr: info.monStr,
     sunStr: info.sunStr,
