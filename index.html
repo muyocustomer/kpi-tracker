@@ -1421,7 +1421,7 @@ function clamp(v,mn,mx){return Math.min(Math.max(v,mn),mx);}
 function calcScores(replyPct,satPct,orderPct,retPct){
   let s1=null,s2=null,s3=null,s4=null;
   if(replyPct!==null) s1=clamp(replyPct,0,100);
-  if(satPct!==null){const d=99-satPct;s2=d>0?clamp(100-Math.ceil(d/2)*5,0,100):100;}
+  if(satPct!==null){const d=99-satPct;s2=d>0?clamp(100-d*2.5,0,100):100;}
   if(orderPct!==null) s3=clamp(100+(orderPct-13)*7.69,0,200);
   if(retPct!==null) s4=clamp(retPct,0,100);
   let w=0,parts=[];
