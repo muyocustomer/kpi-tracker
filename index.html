@@ -141,35 +141,35 @@ window.fbReadyResolve && window.fbReadyResolve();
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Microsoft JhengHei',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Microsoft JhengHei',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh;font-size:16px;}
 
 /* ── Nav ── */
 .nav{background:#fff;border-bottom:0.5px solid rgba(0,0,0,0.1);display:flex;align-items:center;padding:0 1.5rem;position:sticky;top:0;z-index:10;gap:0;}
-.nav-title{font-size:15px;font-weight:500;margin-right:1.5rem;padding:1rem 0;white-space:nowrap;}
-.nav-tab{padding:.85rem 1rem;font-size:13px;cursor:pointer;border:none;border-bottom:2px solid transparent;color:#888780;background:none;font-family:inherit;transition:color .15s;white-space:nowrap;}
+.nav-title{font-size:17px;font-weight:500;margin-right:1.5rem;padding:1rem 0;white-space:nowrap;}
+.nav-tab{padding:.85rem 1.1rem;font-size:14px;cursor:pointer;border:none;border-bottom:2px solid transparent;color:#888780;background:none;font-family:inherit;transition:color .15s;white-space:nowrap;}
 .nav-tab:hover{color:#1a1a18;}
 .nav-tab.active{color:#185FA5;border-bottom:2px solid #185FA5;font-weight:500;}
 
 /* ── Layout ── */
-.page{display:none;max-width:960px;margin:0 auto;padding:2rem 1rem;}
+.page{display:none;max-width:1200px;margin:0 auto;padding:2rem 1rem;}
 .page.active{display:block;}
-.page-title{font-size:20px;font-weight:500;margin-bottom:4px;}
-.page-sub{font-size:13px;color:#6b6b66;margin-bottom:1.75rem;}
-.sec{font-size:11px;font-weight:500;color:#888780;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;}
+.page-title{font-size:24px;font-weight:500;margin-bottom:6px;}
+.page-sub{font-size:14px;color:#6b6b66;margin-bottom:1.75rem;}
+.sec{font-size:12px;font-weight:500;color:#888780;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;}
 
 /* ── Cards ── */
 .card{background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1rem;}
-.card-title{font-size:14px;font-weight:500;margin-bottom:3px;}
-.card-sub{font-size:11px;color:#888780;margin-bottom:12px;}
+.card-title{font-size:16px;font-weight:500;margin-bottom:4px;}
+.card-sub{font-size:13px;color:#888780;margin-bottom:12px;}
 
 /* ── Inputs ── */
-input[type="number"],input[type="text"],input[type="date"],select{border:.5px solid rgba(0,0,0,.18);border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;outline:none;background:#fff;color:#1a1a18;width:100%;transition:border-color .15s;}
+input[type="number"],input[type="text"],input[type="date"],select{border:.5px solid rgba(0,0,0,.18);border-radius:8px;padding:9px 12px;font-size:15px;font-family:inherit;outline:none;background:#fff;color:#1a1a18;width:100%;transition:border-color .15s;}
 input:focus,select:focus{border-color:#185FA5;}
 .ig{display:flex;flex-direction:column;gap:4px;}
 .ig label{font-size:11px;color:#6b6b66;}
 
 /* ── Buttons ── */
-button{background:#fff;border:.5px solid rgba(0,0,0,.2);border-radius:8px;padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer;color:#1a1a18;transition:background .12s,transform .1s;white-space:nowrap;}
+button{background:#fff;border:.5px solid rgba(0,0,0,.2);border-radius:8px;padding:10px 20px;font-size:14px;font-family:inherit;cursor:pointer;color:#1a1a18;transition:background .12s,transform .1s;white-space:nowrap;}
 button:hover{background:#f5f4f0;}
 button:active{transform:scale(.98);}
 .bp{background:#185FA5;color:#fff;border-color:#185FA5;}
@@ -192,14 +192,14 @@ button:active{transform:scale(.98);}
 /* ── Summary boxes ── */
 .sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem;}
 .sum-box{background:#f5f4f0;border-radius:10px;padding:.85rem 1rem;}
-.sum-box .val{font-size:20px;font-weight:500;margin-bottom:2px;}
-.sum-box .lbl{font-size:11px;color:#888780;}
+.sum-box .val{font-size:22px;font-weight:500;margin-bottom:3px;}
+.sum-box .lbl{font-size:12px;color:#888780;}
 
 /* ── Tables ── */
 .table-card{background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;overflow:hidden;margin-bottom:1.5rem;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-th{text-align:left;padding:7px 10px;font-size:11px;font-weight:500;color:#888780;border-bottom:.5px solid rgba(0,0,0,.1);white-space:nowrap;}
-td{padding:8px 10px;border-bottom:.5px solid rgba(0,0,0,.06);vertical-align:middle;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:8px 12px;font-size:12px;font-weight:500;color:#888780;border-bottom:.5px solid rgba(0,0,0,.1);white-space:nowrap;}
+td{padding:10px 12px;border-bottom:.5px solid rgba(0,0,0,.06);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 .del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;padding:0 4px;}
 .del-btn:hover{color:#A32D2D;background:none;}
@@ -218,9 +218,9 @@ tr:last-child td{border-bottom:none;}
 /* ── KPI score cards ── */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;}
 .kpi-card{background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1rem 1.25rem;}
-.kpi-card .name{font-size:13px;font-weight:500;margin-bottom:2px;}
-.kpi-card .meta{font-size:11px;color:#888780;margin-bottom:10px;}
-.krow{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#6b6b66;margin-top:4px;}
+.kpi-card .name{font-size:15px;font-weight:500;margin-bottom:4px;}
+.kpi-card .meta{font-size:12px;color:#888780;margin-bottom:10px;}
+.krow{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#6b6b66;margin-top:4px;}
 .pill{font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;}
 .pg{background:#EAF3DE;color:#3B6D11;}
 .pa{background:#FAEEDA;color:#854F0B;}
@@ -229,8 +229,8 @@ tr:last-child td{border-bottom:none;}
 
 /* ── Total card ── */
 .total-card{background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;}
-.total-score{font-size:40px;font-weight:500;line-height:1;}
-.total-meta{font-size:13px;color:#888780;margin-top:2px;}
+.total-score{font-size:46px;font-weight:500;line-height:1;}
+.total-meta{font-size:14px;color:#888780;margin-top:2px;}
 .grade{font-size:32px;font-weight:500;text-align:right;}
 .grade-lbl{font-size:12px;color:#888780;margin-top:4px;}
 .breakdown{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
@@ -1745,19 +1745,21 @@ function calcWeekdayOrderPctForWeek(monStr){
 }
 
 function renderTrend(){
-  const arr=LH();
+  const allArr=LH();
+  const arr=allArr.slice(-12); // 只顯示最近 12 週
   const empty=document.getElementById('trend-empty');
   const wrap=document.getElementById('trend-wrap');
   if(arr.length===0){empty.style.display='block';wrap.style.display='none';return;}
   empty.style.display='none';wrap.style.display='block';
   const fmt=v=>v!==null?v.toFixed(2):'—';
   document.getElementById('trend-tbody').innerHTML=arr.map((h,i)=>{
+    const globalIdx=allArr.length-arr.length+i;
     const[g]=gradeOf(h.weighted);
     return`<tr>
       <td style="font-weight:500">${h.label}</td>
       <td>${fmt(h.s1)}</td><td>${fmt(h.s2)}</td><td>${fmt(h.s3)}</td><td>${fmt(h.s4)}</td>
       <td style="font-weight:500">${h.weighted.toFixed(2)}</td><td>${g}</td>
-      <td><button class="del-btn" onclick="deleteTrendRow(${i})">✕</button></td>
+      <td><button class="del-btn" onclick="deleteTrendRow(${globalIdx})">✕</button></td>
     </tr>`;
   }).join('');
   const ctx=document.getElementById('trendChart');
@@ -1778,8 +1780,8 @@ function renderTrend(){
   const allValid = [...orderPcts, ...weekdayPcts].filter(v=>v!==null);
   const dataMax = allValid.length>0 ? Math.max(...allValid) : 20;
   const dataMin = allValid.length>0 ? Math.min(...allValid) : 5;
-  const yMax = Math.ceil(Math.max(dataMax+2, 18));
-  const yMin = Math.max(0, Math.floor(Math.min(dataMin-2, 8)));
+  const yMax = 16;
+  const yMin = Math.max(0, Math.floor(dataMin-1));
 
   // 目標線 plugin
   const targetLinePlugin = {
@@ -1818,24 +1820,30 @@ function renderTrend(){
       chart.data.datasets.forEach((ds, dsIdx) => {
         if(!chart.isDatasetVisible(dsIdx)) return;
         const meta = chart.getDatasetMeta(dsIdx);
-        ctx.fillStyle = ds.borderColor;
         meta.data.forEach((point, idx)=>{
           const v = ds.data[idx];
           if(v===null || v===undefined) return;
           const txt = v.toFixed(2)+'%';
           const x = point.x;
-          // 第 1 條(含假日)標籤畫在點上方,第 2 條(平日)畫在點下方,避免重疊
-          let y;
+          // 第1條上方偏移22px，第2條下方偏移22px，確保不重疊
+          let y, baseline;
+          // dsIdx===0(含假日)標籤在下方，dsIdx===1(平日)標籤在上方
           if(dsIdx===0){
-            y = point.y - 8;
-            ctx.textBaseline = 'bottom';
+            y = point.y + 32;
+            baseline = 'top';
           } else {
-            y = point.y + 8;
-            ctx.textBaseline = 'top';
+            y = point.y - 32;
+            baseline = 'bottom';
           }
-          ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-          ctx.lineWidth = 3;
-          ctx.strokeText(txt, x, y);
+          ctx.textBaseline = baseline;
+          // 白色背景框
+          const tw = ctx.measureText(txt).width;
+          const bx = x - tw/2 - 4;
+          const by = baseline==='bottom' ? y - 14 : y;
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.fillRect(bx, by, tw+8, 15);
+          // 文字（顏色固定對應自己的線）
+          ctx.fillStyle = ds.borderColor;
           ctx.fillText(txt, x, y);
         });
       });
@@ -1895,12 +1903,13 @@ function renderTrend(){
           min:yMin,
           max:yMax,
           ticks:{
-            font:{size:11},
+            font:{size:12},
+            stepSize:1,
             callback:(v)=>v+'%'
           },
-          grid:{color:'rgba(0,0,0,0.05)'}
+          grid:{color:'rgba(0,0,0,0.07)'}
         },
-        x:{ticks:{font:{size:11},autoSkip:false}}
+        x:{ticks:{font:{size:12},autoSkip:false}}
       }
     }
   });
