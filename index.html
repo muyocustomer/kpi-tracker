@@ -2654,52 +2654,44 @@ function renderQuarter(){
   set('q-order-ach', orderPct!==null ? (orderPct/13*100).toFixed(1)+'%' : '—');
   set('q-order-rep', totRep>0 ? totRep+' 則' : '—');
 
-  // ── 滿意度：用快照差值算「期間內新增評價的滿意度」 ──
-  // 邏輯:取「<=end」最後一筆快照 − 「<start」前最後一筆快照,差就是區間內新增的評價
+  // ── 滿意度：直接用最新快照的累積滿意度（與服務滿意度頁面一致）──
   const satHist = (window._satHistCache || []);
-  let satPct = null;        // 期間新增評價的滿意度 (%)
-  let satRawScore = null;   // 對應的原始分(用既有的扣分公式)
-  let satInfo = '';         // 顯示用補充說明
-  let satNewTotal = 0;
-  if(satHist.length>0){
-    const endSnap   = satHist.filter(h => h.monStr <= end).slice(-1)[0];
-    const startSnap = satHist.filter(h => h.monStr < start).slice(-1)[0];
-    if(endSnap){
-      // 計算四帳合計差值
-      let newTotal=0, newPos=0;
-      ACCTS.forEach(a=>{
-        const cur  = endSnap[a]   || {};
-        const prev = startSnap ? (startSnap[a] || {}) : {};
-        for(let s=1;s<=5;s++){
-          const d = (cur[s]||0) - (prev[s]||0);
-          newTotal += d;
-          if(s>=4) newPos += d;
-        }
-      });
-      if(newTotal>0){
-        satPct = newPos/newTotal*100;
-        satNewTotal = newTotal;
-        satInfo = `期間新增 ${newTotal} 則評價`;
-        // 用滿意度計分公式換算原始分(每少1%扣2.5分)
-        if(satPct>=99) satRawScore = 100;
-        else satRawScore = Math.max(0, Math.min(100, 100 - (99-satPct)*2.5));
-      } else {
-        // 區間內無新增評價 → 用「期間結束時的累積滿意度」當顯示值
-        let cumT=0, cumP=0;
-        ACCTS.forEach(a=>{
-          const cur = endSnap[a] || {};
-          for(let s=1;s<=5;s++){
-            cumT += (cur[s]||0);
-            if(s>=4) cumP += (cur[s]||0);
-          }
-        });
-        if(cumT>0){
-          satPct = cumP/cumT*100;
-          satInfo = '期間內無新增評價，顯示截至區間結束的累積滿意度';
-          if(satPct>=99) satRawScore = 100;
-          else satRawScore = Math.max(0, Math.min(100, 100 - (99-satPct)*2.5));
-        }
+  let satPct = null;
+  let satRawScore = null;
+  let satInfo = '';
+  // 取「<=end」最後一筆快照，用累積數字直接算
+  const endSnap = satHist.filter(h => h.monStr <= end).slice(-1)[0];
+  if(endSnap){
+    let cumT=0, cumP=0;
+    ACCTS.forEach(a=>{
+      const cur = endSnap[a] || {};
+      for(let s=1;s<=5;s++){
+        cumT += (cur[s]||0);
+        if(s>=4) cumP += (cur[s]||0);
       }
+    });
+    if(cumT>0){
+      satPct = cumP/cumT*100;
+      satInfo = `累積總評價 ${cumT} 則`;
+      if(satPct>=99) satRawScore = 100;
+      else satRawScore = Math.max(0, Math.min(100, 100 - (99-satPct)*2.5));
+    }
+  }
+  // 如果沒有快照，從當前 _satCache 直接算
+  if(satPct===null && window._satCache){
+    let cumT=0, cumP=0;
+    ACCTS.forEach(a=>{
+      const cur = window._satCache[a] || {};
+      for(let s=1;s<=5;s++){
+        cumT += (cur[s]||0);
+        if(s>=4) cumP += (cur[s]||0);
+      }
+    });
+    if(cumT>0){
+      satPct = cumP/cumT*100;
+      satInfo = `累積總評價 ${cumT} 則`;
+      if(satPct>=99) satRawScore = 100;
+      else satRawScore = Math.max(0, Math.min(100, 100 - (99-satPct)*2.5));
     }
   }
   set('q-sat-pct',  satPct!==null ? satPct.toFixed(2)+'%' : '無儲存資料');
