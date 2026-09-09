@@ -2813,42 +2813,24 @@ function highlightPQuickBtn(){
   });
 }
 
-// 區間滿意度算法:用「結束日當下的最近快照」減「起始日前最後一筆快照」
-// 算出「區間內新增的評價」的滿意度
+// 滿意度算法：直接用「結束日當下最近快照」的累積數字（與服務滿意度頁面一致）
 function calcPlatformSat(acct, start, end){
   const hist = (window._satHistCache || []);
-  if(hist.length===0) return {newTotal:0, newPos:0, pct:null, note:'無滿意度快照'};
 
-  // 區間內(含)最後一筆快照 → 結尾值
-  const endSnap = hist.filter(h => h.monStr <= end).slice(-1)[0];
-  if(!endSnap) return {newTotal:0, newPos:0, pct:null, note:'區間內無快照'};
+  // 優先用快照
+  const endSnap = hist.length>0 ? hist.filter(h => h.monStr <= end).slice(-1)[0] : null;
+  const src = endSnap ? (endSnap[acct] || {}) : (window._satCache ? (window._satCache[acct] || {}) : {});
 
-  // 起始日之前最後一筆快照 → 開頭值(差值就是區間內新增)
-  const startSnap = hist.filter(h => h.monStr < start).slice(-1)[0];
-
-  const cur  = endSnap[acct]   || {1:0,2:0,3:0,4:0,5:0};
-  const prev = startSnap ? (startSnap[acct] || {1:0,2:0,3:0,4:0,5:0}) : {1:0,2:0,3:0,4:0,5:0};
-
-  let newTotal=0, newPos=0;
+  let cumTotal=0, cumPos=0;
   for(let s=1;s<=5;s++){
-    const d = (cur[s]||0) - (prev[s]||0);
-    newTotal += d;
-    if(s>=4) newPos += d;
+    cumTotal += (src[s]||0);
+    if(s>=4) cumPos += (src[s]||0);
   }
 
-  if(newTotal<=0){
-    // 區間內沒新增評價 → 改顯示「截至區間結束的累積滿意度」當參考
-    let ct=0, cp=0;
-    for(let s=1;s<=5;s++){
-      ct += (cur[s]||0);
-      if(s>=4) cp += (cur[s]||0);
-    }
-    const pct = ct>0 ? cp/ct*100 : null;
-    return {newTotal:0, newPos:0, pct, note:'此區間無新增評價，顯示截至區間結束的累積滿意度', isCumulative:true};
-  }
+  if(cumTotal<=0) return {newTotal:0, newPos:0, pct:null, note:'無滿意度資料'};
 
-  const pct = newTotal>0 ? newPos/newTotal*100 : null;
-  return {newTotal, newPos, pct, note:null, baseLabel: startSnap ? startSnap.label||startSnap.monStr : '初始'};
+  const pct = cumPos/cumTotal*100;
+  return {newTotal:cumTotal, newPos:cumPos, pct, note:`累積評價 ${cumTotal} 則`, isCumulative:true};
 }
 
 function renderPlatform(){
