@@ -1339,10 +1339,10 @@ function renderOrder(){
   const weekHD = week.filter(r => isHoliday(r.date));
   const sumSource = weekdayOnly ? weekWD : week;
 
-  const totRep=sumSource.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
-  const totBuy=sumSource.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
+  const totRep=sumSource.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['rep'+a]||0),0),0);
+  const totBuy=sumSource.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['buy'+a]||0),0),0);
   document.getElementById('sum-order-rate').textContent=totRep>0?(totBuy/totRep*100).toFixed(2)+'%':'—';
-  const totSales=sumSource.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
+  const totSales=sumSource.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['sal'+a]||0),0),0);
   document.getElementById('sum-sales').textContent=totSales>0?'$'+totSales.toLocaleString():'—';
 
   // 摘要標籤
@@ -1352,9 +1352,9 @@ function renderOrder(){
   // 假日資訊區
   const hInfo = document.getElementById('sum-holiday-info');
   if(weekdayOnly && weekHD.length>0){
-    const hRep = weekHD.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
-    const hBuy = weekHD.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
-    const hSal = weekHD.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
+    const hRep = weekHD.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['rep'+a]||0),0),0);
+    const hBuy = weekHD.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['buy'+a]||0),0),0);
+    const hSal = weekHD.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['sal'+a]||0),0),0);
     const hRate = hRep>0 ? (hBuy/hRep*100).toFixed(2)+'%' : '—';
     hInfo.style.display = 'block';
     hInfo.innerHTML = `假日獨立統計（${weekHD.length} 天）｜轉單率 ${hRate}｜銷售額 ${hSal>0?'$'+hSal.toLocaleString():'—'}`;
@@ -1367,14 +1367,14 @@ function renderOrder(){
 
   const tbody=document.getElementById('order-tbody');
   const empty=document.getElementById('order-empty');
-  const hasData=week.some(r=>(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)>0||(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0)>0);
+  const hasData=week.some(r=>ACCTS.some(a=>(r['rep'+a]||0)>0||(r['sal'+a]||0)>0));
   if(!hasData){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   const fOR=(buy,rep)=>rep>0?(buy/rep*100).toFixed(2)+'%':'—';
-  tbody.innerHTML=week.filter(r=>(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)>0||(r.salA||0)+(r.salB||0)>(r.salC||0)+(r.salD||0)>0).map(r=>{
-    const dRep=(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0);
-    const dBuy=(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0);
-    const dSal=(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0);
+  tbody.innerHTML=week.filter(r=>ACCTS.some(a=>(r['rep'+a]||0)>0||(r['sal'+a]||0)>0)).map(r=>{
+    const dRep=ACCTS.reduce((s,a)=>s+(r['rep'+a]||0),0);
+    const dBuy=ACCTS.reduce((s,a)=>s+(r['buy'+a]||0),0);
+    const dSal=ACCTS.reduce((s,a)=>s+(r['sal'+a]||0),0);
     const hasSales = dSal>0;
     const holiday = isHoliday(r.date);
     const rowBg = (weekdayOnly && holiday) ? 'background:#faf6ed;color:#aaa;' : '';
@@ -1383,22 +1383,16 @@ function renderOrder(){
       ? `<span style="color:#185FA5;cursor:pointer;user-select:none;" title="點擊展開各帳銷售額">$${dSal.toLocaleString()} <span class="sal-arrow" style="font-size:10px;color:#888780;">▸</span></span>`
       : '—';
     const detailRow = hasSales ? `<tr class="sal-detail" id="sal-detail-${r.date}" style="display:none;background:#fafaf7;">
-      <td colspan="16" style="padding:10px 16px;">
+      <td colspan="${3*ACCTS.length+4}" style="padding:10px 16px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <span style="font-size:11px;color:#888780;margin-right:4px;">各帳銷售額：</span>
-          <span style="background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:8px;padding:6px 10px;font-size:12px;"><span class="acct-badge acc-A" style="margin:0 6px 0 0;font-size:10px;">A</span>$${(r.salA||0).toLocaleString()}</span>
-          <span style="background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:8px;padding:6px 10px;font-size:12px;"><span class="acct-badge acc-B" style="margin:0 6px 0 0;font-size:10px;">B</span>$${(r.salB||0).toLocaleString()}</span>
-          <span style="background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:8px;padding:6px 10px;font-size:12px;"><span class="acct-badge acc-C" style="margin:0 6px 0 0;font-size:10px;">C</span>$${(r.salC||0).toLocaleString()}</span>
-          <span style="background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:8px;padding:6px 10px;font-size:12px;"><span class="acct-badge acc-D" style="margin:0 6px 0 0;font-size:10px;">D</span>$${(r.salD||0).toLocaleString()}</span>
+          ${ACCTS.map(a=>`<span style="background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:8px;padding:6px 10px;font-size:12px;"><span class="acct-badge acc-${a}" style="margin:0 6px 0 0;font-size:10px;">${a}</span>$${(r['sal'+a]||0).toLocaleString()}</span>`).join('')}
         </div>
       </td>
     </tr>` : '';
     return`<tr${hasSales?` style="cursor:pointer;${rowBg}" onclick="toggleSalDetail('${r.date}',event)"`:` style="${rowBg}"`}>
       <td style="font-weight:500">${r.date}${dateTag}</td>
-      <td>${r.repA||0}</td><td>${r.buyA||0}</td><td>${fOR(r.buyA,r.repA)}</td>
-      <td>${r.repB||0}</td><td>${r.buyB||0}</td><td>${fOR(r.buyB,r.repB)}</td>
-      <td>${r.repC||0}</td><td>${r.buyC||0}</td><td>${fOR(r.buyC,r.repC)}</td>
-      <td>${r.repD||0}</td><td>${r.buyD||0}</td><td>${fOR(r.buyD,r.repD)}</td>
+      ${ACCTS.map(a=>`<td>${r['rep'+a]||0}</td><td>${r['buy'+a]||0}</td><td>${fOR(r['buy'+a],r['rep'+a])}</td>`).join('')}
       <td style="font-weight:500">${fOR(dBuy,dRep)}</td>
       <td>${salesDisplay}</td>
       <td><button class="del-btn" onclick="event.stopPropagation();deleteOrderRecord('${r.date}')">✕</button></td>
