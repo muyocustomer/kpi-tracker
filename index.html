@@ -3171,6 +3171,7 @@ waitForFb().then(init);
 // ══════ 蝦皮 API 串接 ══════
 const SP_PARTNER_ID_DEFAULT = 2037746;
 const SHOPEE_API_BASE = 'https://partner.shopeemobile.com';
+const SHOPEE_PROXY_BASE = 'https://shopee-proxy-zeta.vercel.app';
 
 function spGetConfig(){
   try {
@@ -3261,9 +3262,9 @@ async function spExchangeToken(code, shopId){
   const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
   const sign = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   
-  const url = `${SHOPEE_API_BASE}/api/v2/auth/token/get?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}`;
+  const url = `${SHOPEE_PROXY_BASE}/api/shopee/auth/token/get?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}`;
   const body = JSON.stringify({ code, shop_id: parseInt(shopId), partner_id: partnerId });
-  
+
   const res = await fetch(url, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -3322,7 +3323,7 @@ async function spGetShopPerformance(partnerId, partnerKey, shopId, accessToken){
   const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
   const sign = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   
-  const url = `${SHOPEE_API_BASE}/api/v2/account_health/get_shop_performance?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
+  const url = `${SHOPEE_PROXY_BASE}/api/shopee/account_health/get_shop_performance?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
   const res = await fetch(url);
   return await res.json();
 }
