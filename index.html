@@ -308,6 +308,7 @@ tr:last-child td{border-bottom:none;}
         <input type="number" id="rr-B" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
         <input type="number" id="rr-C" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
         <input type="number" id="rr-D" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
+        <input type="number" id="rr-G" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
       </div>
     </div>
     <div style="padding:8px 12px;background:#f5f4f0;border-radius:8px;font-size:13px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -1197,10 +1198,10 @@ function updateReplyPreview(){
 async function saveReplyRecord(){
   const date=document.getElementById('d-date').value;
   if(!date){alert('請選擇日期');return;}
-  const rrA=getVal('rr-A'),rrB=getVal('rr-B'),rrC=getVal('rr-C'),rrD=getVal('rr-D');
-  if(rrA===null&&rrB===null&&rrC===null&&rrD===null){alert('請至少輸入一個帳號的回覆率');return;}
-  const existing=window._dailyCache.find(r=>r.date===date)||{date,repA:0,repB:0,repC:0,repD:0,buyA:0,buyB:0,buyC:0,buyD:0,salA:0,salB:0,salC:0,salD:0};
-  const rec={...existing,date,rrA,rrB,rrC,rrD};
+  const rrA=getVal('rr-A'),rrB=getVal('rr-B'),rrC=getVal('rr-C'),rrD=getVal('rr-D'),rrG=getVal('rr-G');
+  if(rrA===null&&rrB===null&&rrC===null&&rrD===null&&rrG===null){alert('請至少輸入一個帳號的回覆率');return;}
+  const existing=window._dailyCache.find(r=>r.date===date)||{date,repA:0,repB:0,repC:0,repD:0,repG:0,buyA:0,buyB:0,buyC:0,buyD:0,buyG:0,salA:0,salB:0,salC:0,salD:0,salG:0};
+  const rec={...existing,date,rrA,rrB,rrC,rrD,rrG};
   showSaving(true);
   await window.fbSetDaily(rec);
   await window.loadAllData();
@@ -1211,7 +1212,7 @@ async function saveReplyRecord(){
   const sun=new Date(mon); sun.setDate(mon.getDate()+6);
   console.log('顯示週範圍:', toStr(mon), '~', toStr(sun));
   console.log('輸入的日期:', date, '在範圍內?', date>=toStr(mon)&&date<=toStr(sun));
-  ['rr-A','rr-B','rr-C','rr-D'].forEach(id=>document.getElementById(id).value='');
+  ['rr-A','rr-B','rr-C','rr-D','rr-G'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prev-reply-avg').textContent='—';
   renderReply();
 }
@@ -1221,8 +1222,8 @@ async function deleteReplyRecord(date){
   const r=window._dailyCache.find(rec=>rec.date===date);
   if(!r)return;
   showSaving(true);
-  if((r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)>0){
-    await window.fbSetDaily({...r,rrA:null,rrB:null,rrC:null,rrD:null});
+  if((r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0)+(r.repG||0)>0){
+    await window.fbSetDaily({...r,rrA:null,rrB:null,rrC:null,rrD:null,rrG:null});
   } else {
     await window.fbDeleteDaily(date);
   }
@@ -1246,16 +1247,16 @@ function renderReply(){
   document.getElementById('sum-reply-avg').textContent=overall!==null?overall.toFixed(2)+'%':'—';
   const tbody=document.getElementById('reply-tbody');
   const empty=document.getElementById('reply-empty');
-  const hasData=week.some(r=>r.rrA!==null||r.rrB!==null||r.rrC!==null||r.rrD!==null);
+  const hasData=week.some(r=>ACCTS.some(a=>r['rr'+a]!==null&&r['rr'+a]!==undefined));
   if(!hasData){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  const fmtR=v=>v!==null?v.toFixed(2)+'%':'—';
-  tbody.innerHTML=week.filter(r=>r.rrA!==null||r.rrB!==null||r.rrC!==null||r.rrD!==null).map(r=>{
-    const vals=[r.rrA,r.rrB,r.rrC,r.rrD].filter(v=>v!==null);
+  const fmtR=v=>v!==null&&v!==undefined?v.toFixed(2)+'%':'—';
+  tbody.innerHTML=week.filter(r=>ACCTS.some(a=>r['rr'+a]!==null&&r['rr'+a]!==undefined)).map(r=>{
+    const vals=ACCTS.map(a=>r['rr'+a]).filter(v=>v!==null&&v!==undefined);
     const avg=vals.length>0?(vals.reduce((s,v)=>s+v,0)/vals.length):null;
     return`<tr>
       <td style="font-weight:500">${r.date}</td>
-      <td>${fmtR(r.rrA)}</td><td>${fmtR(r.rrB)}</td><td>${fmtR(r.rrC)}</td><td>${fmtR(r.rrD)}</td>
+      ${ACCTS.map(a=>`<td>${fmtR(r['rr'+a])}</td>`).join('')}
       <td style="font-weight:500">${avg!==null?avg.toFixed(2)+'%':'—'}</td>
       <td><button class="del-btn" onclick="deleteReplyRecord('${r.date}')">✕</button></td>
     </tr>`;
@@ -1277,17 +1278,17 @@ function updateOrderPreview(){
 async function saveOrderRecord(){
   const date=document.getElementById('d-date2').value;
   if(!date){alert('請選擇日期');return;}
-  const repA=getVal('d-repA')||0,repB=getVal('d-repB')||0,repC=getVal('d-repC')||0,repD=getVal('d-repD')||0;
-  const buyA=getVal('d-buyA')||0,buyB=getVal('d-buyB')||0,buyC=getVal('d-buyC')||0,buyD=getVal('d-buyD')||0;
-  const salA=getVal('d-salA')||0,salB=getVal('d-salB')||0,salC=getVal('d-salC')||0,salD=getVal('d-salD')||0;
-  if((repA+repB+repC+repD)===0&&(salA+salB+salC+salD)===0){alert('請至少輸入一個帳號的數字');return;}
-  const existing=window._dailyCache.find(r=>r.date===date)||{date,rrA:null,rrB:null,rrC:null,rrD:null};
-  const rec={...existing,date,repA,repB,repC,repD,buyA,buyB,buyC,buyD,salA,salB,salC,salD};
+  const repA=getVal('d-repA')||0,repB=getVal('d-repB')||0,repC=getVal('d-repC')||0,repD=getVal('d-repD')||0,repG=getVal('d-repG')||0;
+  const buyA=getVal('d-buyA')||0,buyB=getVal('d-buyB')||0,buyC=getVal('d-buyC')||0,buyD=getVal('d-buyD')||0,buyG=getVal('d-buyG')||0;
+  const salA=getVal('d-salA')||0,salB=getVal('d-salB')||0,salC=getVal('d-salC')||0,salD=getVal('d-salD')||0,salG=getVal('d-salG')||0;
+  if((repA+repB+repC+repD+repG)===0&&(salA+salB+salC+salD+salG)===0){alert('請至少輸入一個帳號的數字');return;}
+  const existing=window._dailyCache.find(r=>r.date===date)||{date,rrA:null,rrB:null,rrC:null,rrD:null,rrG:null};
+  const rec={...existing,date,repA,repB,repC,repD,repG,buyA,buyB,buyC,buyD,buyG,salA,salB,salC,salD,salG};
   showSaving(true);
   await window.fbSetDaily(rec);
   await window.loadAllData();
   showSaving(false);
-  ['d-repA','d-repB','d-repC','d-repD','d-buyA','d-buyB','d-buyC','d-buyD','d-salA','d-salB','d-salC','d-salD'].forEach(id=>document.getElementById(id).value='');
+  ['d-repA','d-repB','d-repC','d-repD','d-repG','d-buyA','d-buyB','d-buyC','d-buyD','d-buyG','d-salA','d-salB','d-salC','d-salD','d-salG'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prev-order-total').textContent='—';
   ACCTS.forEach(a=>document.getElementById('prev-or'+a).textContent='—');
   renderOrder();
