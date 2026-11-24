@@ -3213,7 +3213,7 @@ function spRenderAcctList(){
   }).join('');
 }
 
-function spAuthorize(acct){
+async function spAuthorize(acct){
   const cfg = spGetConfig();
   if(!cfg.partnerId || !cfg.partnerKey){
     alert('請先填入並儲存 Partner ID 和 Partner Key');
@@ -3221,9 +3221,20 @@ function spAuthorize(acct){
   }
   // 把待授權帳號存起來，callback 後知道是哪個帳號
   localStorage.setItem('shopeeAuthPending', acct);
-  
-  const redirectUrl = encodeURIComponent(window.location.href.split('?')[0]);
-  const authUrl = `${SHOPEE_API_BASE}/api/v2/shop/auth_partner?partner_id=${cfg.partnerId}&redirect=${redirectUrl}&timestamp=${Math.floor(Date.now()/1000)}`;
+
+  const partnerId = cfg.partnerId;
+  const partnerKey = cfg.partnerKey;
+  const timestamp = Math.floor(Date.now()/1000);
+  const redirectUrl = window.location.href.split('?')[0];
+
+  // 產生簽章：HMAC-SHA256(partnerId + "/api/v2/shop/auth_partner" + timestamp)
+  const baseStr = `${partnerId}/api/v2/shop/auth_partner${timestamp}`;
+  const enc = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey('raw', enc.encode(partnerKey), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(baseStr));
+  const sign = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+
+  const authUrl = `${SHOPEE_API_BASE}/api/v2/shop/auth_partner?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}&redirect=${encodeURIComponent(redirectUrl)}`;
   window.location.href = authUrl;
 }
 
