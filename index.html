@@ -1191,8 +1191,8 @@ function getWeekRecs(offset){
 }
 
 function acctAvg(week,acct){
-  const vals=week.map(r=>r['rr'+acct]).filter(v=>v!==null && v!==undefined);
-  return vals.length>0?(vals.reduce((s,v)=>s+v,0)/vals.length):null;
+  const vals=week.map(r=>r['rr'+acct]).filter(v=>v!==null && v!==undefined && !isNaN(v) && v!=='');
+  return vals.length>0?(vals.reduce((s,v)=>s+parseFloat(v),0)/vals.length):null;
 }
 
 // ── Reply Rate page ──
@@ -1259,7 +1259,7 @@ function renderReply(){
   empty.style.display='none';
   const fmtR=v=>v!==null&&v!==undefined?v.toFixed(2)+'%':'—';
   tbody.innerHTML=week.filter(r=>ACCTS.some(a=>r['rr'+a]!==null&&r['rr'+a]!==undefined)).map(r=>{
-    const vals=ACCTS.map(a=>r['rr'+a]).filter(v=>v!==null&&v!==undefined);
+    const vals=ACCTS.map(a=>r['rr'+a]).filter(v=>v!==null&&v!==undefined&&!isNaN(v)&&v!=='').map(v=>parseFloat(v));
     const avg=vals.length>0?(vals.reduce((s,v)=>s+v,0)/vals.length):null;
     return`<tr>
       <td style="font-weight:500">${r.date}</td>
