@@ -3354,8 +3354,8 @@ async function spSyncAll(){
         const chatRate = metrics.find(m => m.metric_id === 11);
         const satisfaction = metrics.find(m => m.metric_id === 95);
         
-        const rr = chatRate ? (chatRate.current_period * 100).toFixed(2) : null;
-        const sat = satisfaction ? (satisfaction.current_period * 100).toFixed(2) : null;
+        const rr = chatRate ? (chatRate.current_period / 100).toFixed(2) : null;
+        const sat = satisfaction ? (satisfaction.current_period / 100).toFixed(2) : null;
         
         lines.push(`<div style="color:#2d7a2d;">帳號 ${acct}：回覆率 ${rr ? rr+'%' : '—'}，滿意度 ${sat ? sat+'%' : '—'}</div>`);
         
