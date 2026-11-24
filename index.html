@@ -1191,7 +1191,7 @@ function getWeekRecs(offset){
 }
 
 function acctAvg(week,acct){
-  const vals=week.map(r=>r['rr'+acct]).filter(v=>v!==null);
+  const vals=week.map(r=>r['rr'+acct]).filter(v=>v!==null && v!==undefined);
   return vals.length>0?(vals.reduce((s,v)=>s+v,0)/vals.length):null;
 }
 
