@@ -3375,6 +3375,8 @@ async function spSyncAll(){
   result.innerHTML = lines.join('');
   btn.disabled = false;
   btn.textContent = '🔄 同步所有帳號數據';
+  // 同步完後更新平均顯示
+  updateReplyPreview();
 }
 
 // 頁面載入時初始化
