@@ -3267,7 +3267,7 @@ async function spHandleCallback(){
   localStorage.removeItem('shopeeAuthPending');
   
   // 切換到串接頁面
-  const btn = document.querySelector('[onclick="showPage('shopee',this)"]');
+  const btn = document.querySelector("[onclick=\"showPage('shopee',this)\"]");
   if(btn) showPage('shopee', btn);
   
   document.getElementById('sp-partner-status').textContent = '🔄 正在換取 Token...';
