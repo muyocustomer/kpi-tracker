@@ -2696,8 +2696,8 @@ function renderQuarter(){
 
   const weekReplyAvgs = Object.values(weekMap).map(wRecs => {
     const acctAvgsW = ACCTS.map(a => {
-      const vals = wRecs.map(r=>r['rr'+a]).filter(v=>v!==null);
-      return vals.length>0 ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+      const vals = wRecs.map(r=>r['rr'+a]).filter(v=>v!==null&&v!==undefined&&!isNaN(v)&&v!=='');
+      return vals.length>0 ? vals.reduce((s,v)=>s+parseFloat(v),0)/vals.length : null;
     }).filter(v=>v!==null);
     return acctAvgsW.length>0 ? acctAvgsW.reduce((s,v)=>s+v,0)/acctAvgsW.length : null;
   }).filter(v=>v!==null);
@@ -2708,8 +2708,8 @@ function renderQuarter(){
   set('q-reply-weeks', replyPct!==null ? weekReplyAvgs.length+' 週' : '—');
 
   // ── 轉單率：total buy / total rep across all daily in range ──
-  const totRep = daily.reduce((s,r)=>s+(r.repA||0)+(r.repB||0)+(r.repC||0)+(r.repD||0),0);
-  const totBuy = daily.reduce((s,r)=>s+(r.buyA||0)+(r.buyB||0)+(r.buyC||0)+(r.buyD||0),0);
+  const totRep = daily.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['rep'+a]||0),0),0);
+  const totBuy = daily.reduce((s,r)=>s+ACCTS.reduce((ss,a)=>ss+(r['buy'+a]||0),0),0);
   const orderPct = totRep>0 ? totBuy/totRep*100 : null;
   set('q-order-pct', orderPct!==null ? orderPct.toFixed(2)+'%' : '無資料');
   set('q-order-ach', orderPct!==null ? (orderPct/13*100).toFixed(1)+'%' : '—');
