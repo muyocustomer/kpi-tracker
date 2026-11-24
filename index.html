@@ -184,13 +184,14 @@ button:active{transform:scale(.98);}
 .acc-B{background:#E8F0FB;color:#1a4a8a;}
 .acc-C{background:#FFF3E0;color:#8a4a00;}
 .acc-D{background:#F3E8FF;color:#5a1a8a;}
+.acc-G{background:#E0F7F4;color:#0a5c52;}
 
 /* ── Account row in daily input ── */
 .acct-row{display:grid;grid-template-columns:60px 1fr 1fr 80px;gap:8px;align-items:end;margin-bottom:8px;}
 .acct-row .rate-preview{font-size:15px;font-weight:500;color:#185FA5;padding-bottom:4px;}
 
 /* ── Summary boxes ── */
-.sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem;}
+.sum-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:1rem;}
 .sum-box{background:#f5f4f0;border-radius:10px;padding:.85rem 1rem;}
 .sum-box .val{font-size:22px;font-weight:500;margin-bottom:3px;}
 .sum-box .lbl{font-size:12px;color:#888780;}
@@ -265,6 +266,7 @@ tr:last-child td{border-bottom:none;}
   <button class="nav-tab" onclick="showPage('platform',this)">平台分析</button>
   <button class="nav-tab" onclick="showPage('trend',this)">歷週趨勢</button>
   <button class="nav-tab" onclick="showPage('anomaly',this)">異常率追蹤</button>
+  <button class="nav-tab" id="shopee-tab" onclick="showPage('shopee',this)">🔗 蝦皮串接</button>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;padding:0 0.5rem;">
     <button class="bsm bp" onclick="exportBackup()" style="font-size:12px;">⬇ 匯出備份</button>
     <label class="bsm" style="cursor:pointer;padding:5px 12px;border:.5px solid rgba(0,0,0,.2);border-radius:8px;font-size:12px;background:#fff;">
@@ -278,7 +280,7 @@ tr:last-child td{border-bottom:none;}
 ══════════════════════════════ -->
 <div class="page active" id="page-reply">
   <h1 class="page-title">訊息回覆率</h1>
-  <p class="page-sub">每天從蝦皮報表輸入四個帳號的回覆率（%），系統計算本週四帳平均</p>
+  <p class="page-sub">每天從蝦皮報表輸入五個帳號的回覆率（%），系統計算本週五帳平均</p>
 
   <p class="sec">新增今日回覆率</p>
   <div class="card">
@@ -291,16 +293,17 @@ tr:last-child td{border-bottom:none;}
     <div style="font-size:11px;color:#888780;margin-bottom:10px;">直接輸入蝦皮報表的回覆率 %，不需要計算</div>
     <div style="display:grid;grid-template-columns:50px 1fr;gap:4px 8px;align-items:center;margin-bottom:4px;">
       <div></div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
         <div style="text-align:center;"><span class="acct-badge acc-A" style="margin:0;">帳號 A</span></div>
         <div style="text-align:center;"><span class="acct-badge acc-B" style="margin:0;">帳號 B</span></div>
         <div style="text-align:center;"><span class="acct-badge acc-C" style="margin:0;">帳號 C</span></div>
         <div style="text-align:center;"><span class="acct-badge acc-D" style="margin:0;">帳號 D</span></div>
+        <div style="text-align:center;"><span class="acct-badge acc-G" style="margin:0;">帳號 G</span></div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:50px 1fr;gap:8px;align-items:center;margin-bottom:10px;">
       <div style="font-size:12px;color:#6b6b66;">回覆率%</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
         <input type="number" id="rr-A" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
         <input type="number" id="rr-B" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
         <input type="number" id="rr-C" min="0" max="100" step="0.1" placeholder="%" oninput="updateReplyPreview()">
@@ -308,7 +311,7 @@ tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <div style="padding:8px 12px;background:#f5f4f0;border-radius:8px;font-size:13px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem;">
-      <span style="color:#6b6b66;">今日四帳平均：</span>
+      <span style="color:#6b6b66;">今日五帳平均：</span>
       <span id="prev-reply-avg" style="font-size:16px;font-weight:500;color:#185FA5;">—</span>
     </div>
     <button class="bp" onclick="saveReplyRecord()">儲存今日回覆率 →</button>
@@ -328,9 +331,10 @@ tr:last-child td{border-bottom:none;}
     <div class="sum-box"><div class="val" id="sum-rB">—</div><div class="lbl">帳號B 週平均</div></div>
     <div class="sum-box"><div class="val" id="sum-rC">—</div><div class="lbl">帳號C 週平均</div></div>
     <div class="sum-box"><div class="val" id="sum-rD">—</div><div class="lbl">帳號D 週平均</div></div>
+    <div class="sum-box"><div class="val" id="sum-rG">—</div><div class="lbl">帳號G 週平均</div></div>
   </div>
   <div style="margin-bottom:1rem;padding:10px 14px;background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:10px;">
-    <span style="font-size:12px;color:#888780;">四帳週平均回覆率：</span>
+    <span style="font-size:12px;color:#888780;">五帳週平均回覆率：</span>
     <span id="sum-reply-avg" style="font-size:20px;font-weight:500;color:#185FA5;">—</span>
   </div>
 
@@ -339,8 +343,8 @@ tr:last-child td{border-bottom:none;}
       <thead>
         <tr>
           <th>日期</th>
-          <th>帳號 A</th><th>帳號 B</th><th>帳號 C</th><th>帳號 D</th>
-          <th>四帳平均</th>
+          <th>帳號 A</th><th>帳號 B</th><th>帳號 C</th><th>帳號 D</th><th>帳號 G</th>
+          <th>五帳平均</th>
           <th></th>
         </tr>
       </thead>
@@ -355,7 +359,7 @@ tr:last-child td{border-bottom:none;}
 ══════════════════════════════ -->
 <div class="page" id="page-order">
   <h1 class="page-title">回覆轉單率</h1>
-  <p class="page-sub">每天輸入四個帳號的已回覆訊息數及買家數，系統計算轉單率；銷售額純記錄</p>
+  <p class="page-sub">每天輸入五個帳號的已回覆訊息數及買家數，系統計算轉單率；銷售額純記錄</p>
 
   <p class="sec">新增今日數據</p>
   <div class="card">
@@ -367,48 +371,53 @@ tr:last-child td{border-bottom:none;}
     </div>
 
     <!-- 帳號標題列 -->
-    <div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:8px;margin-bottom:6px;align-items:center;">
+    <div style="display:grid;grid-template-columns:80px repeat(5,1fr);gap:8px;margin-bottom:6px;align-items:center;">
       <div></div>
       <div style="text-align:center;"><span class="acct-badge acc-A" style="margin:0;">帳號 A</span></div>
       <div style="text-align:center;"><span class="acct-badge acc-B" style="margin:0;">帳號 B</span></div>
       <div style="text-align:center;"><span class="acct-badge acc-C" style="margin:0;">帳號 C</span></div>
       <div style="text-align:center;"><span class="acct-badge acc-D" style="margin:0;">帳號 D</span></div>
+      <div style="text-align:center;"><span class="acct-badge acc-G" style="margin:0;">帳號 G</span></div>
     </div>
     <!-- 已回覆訊息數 -->
-    <div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:8px;margin-bottom:8px;align-items:center;">
+    <div style="display:grid;grid-template-columns:80px repeat(5,1fr);gap:8px;margin-bottom:8px;align-items:center;">
       <div style="font-size:11px;color:#6b6b66;line-height:1.4;">已回覆<br>訊息數（則）</div>
       <input type="number" id="d-repA" min="0" step="1" placeholder="則" oninput="updateOrderPreview()">
       <input type="number" id="d-repB" min="0" step="1" placeholder="則" oninput="updateOrderPreview()">
       <input type="number" id="d-repC" min="0" step="1" placeholder="則" oninput="updateOrderPreview()">
       <input type="number" id="d-repD" min="0" step="1" placeholder="則" oninput="updateOrderPreview()">
+      <input type="number" id="d-repG" min="0" step="1" placeholder="則" oninput="updateOrderPreview()">
     </div>
     <!-- 買家數 -->
-    <div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:8px;margin-bottom:8px;align-items:center;">
+    <div style="display:grid;grid-template-columns:80px repeat(5,1fr);gap:8px;margin-bottom:8px;align-items:center;">
       <div style="font-size:11px;color:#6b6b66;">買家數（人）</div>
       <input type="number" id="d-buyA" min="0" step="1" placeholder="人" oninput="updateOrderPreview()">
       <input type="number" id="d-buyB" min="0" step="1" placeholder="人" oninput="updateOrderPreview()">
       <input type="number" id="d-buyC" min="0" step="1" placeholder="人" oninput="updateOrderPreview()">
       <input type="number" id="d-buyD" min="0" step="1" placeholder="人" oninput="updateOrderPreview()">
+      <input type="number" id="d-buyG" min="0" step="1" placeholder="人" oninput="updateOrderPreview()">
     </div>
     <!-- 即時轉單率 -->
-    <div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:8px;margin-bottom:8px;align-items:center;">
+    <div style="display:grid;grid-template-columns:80px repeat(5,1fr);gap:8px;margin-bottom:8px;align-items:center;">
       <div style="font-size:11px;color:#6b6b66;">轉單率</div>
       <div style="text-align:center;font-size:14px;font-weight:500;color:#185FA5;" id="prev-orA">—</div>
       <div style="text-align:center;font-size:14px;font-weight:500;color:#185FA5;" id="prev-orB">—</div>
       <div style="text-align:center;font-size:14px;font-weight:500;color:#185FA5;" id="prev-orC">—</div>
       <div style="text-align:center;font-size:14px;font-weight:500;color:#185FA5;" id="prev-orD">—</div>
+      <div style="text-align:center;font-size:14px;font-weight:500;color:#185FA5;" id="prev-orG">—</div>
     </div>
     <!-- 銷售額 -->
-    <div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:8px;margin-bottom:8px;align-items:center;">
+    <div style="display:grid;grid-template-columns:80px repeat(5,1fr);gap:8px;margin-bottom:8px;align-items:center;">
       <div style="font-size:11px;color:#6b6b66;">銷售額（元）<br><span style="color:#aaa;">記錄用</span></div>
       <input type="number" id="d-salA" min="0" step="1" placeholder="元">
       <input type="number" id="d-salB" min="0" step="1" placeholder="元">
       <input type="number" id="d-salC" min="0" step="1" placeholder="元">
       <input type="number" id="d-salD" min="0" step="1" placeholder="元">
+      <input type="number" id="d-salG" min="0" step="1" placeholder="元">
     </div>
 
     <div style="padding:8px 12px;background:#f5f4f0;border-radius:8px;font-size:13px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem;">
-      <span style="color:#6b6b66;">今日四帳加總轉單率：</span>
+      <span style="color:#6b6b66;">今日五帳加總轉單率：</span>
       <span id="prev-order-total" style="font-size:16px;font-weight:500;color:#185FA5;">—</span>
     </div>
     <button class="bp" onclick="saveOrderRecord()">儲存今日轉單率 →</button>
@@ -444,11 +453,13 @@ tr:last-child td{border-bottom:none;}
           <th colspan="3" style="text-align:center;border-bottom:.5px solid rgba(0,0,0,.06);">帳號 B</th>
           <th colspan="3" style="text-align:center;border-bottom:.5px solid rgba(0,0,0,.06);">帳號 C</th>
           <th colspan="3" style="text-align:center;border-bottom:.5px solid rgba(0,0,0,.06);">帳號 D</th>
-          <th rowspan="2">四帳轉單率</th>
+          <th colspan="3" style="text-align:center;border-bottom:.5px solid rgba(0,0,0,.06);">帳號 G</th>
+          <th rowspan="2">五帳轉單率</th>
           <th rowspan="2">總銷售額</th>
           <th rowspan="2"></th>
         </tr>
         <tr>
+          <th>回覆數</th><th>買家數</th><th>轉單率</th>
           <th>回覆數</th><th>買家數</th><th>轉單率</th>
           <th>回覆數</th><th>買家數</th><th>轉單率</th>
           <th>回覆數</th><th>買家數</th><th>轉單率</th>
@@ -466,7 +477,7 @@ tr:last-child td{border-bottom:none;}
 ══════════════════════════════ -->
 <div class="page" id="page-satisfy">
   <h1 class="page-title">服務滿意度</h1>
-  <p class="page-sub">輸入四個蝦皮帳號的評價星數，系統計算各帳滿意度及四帳加權總平均</p>
+  <p class="page-sub">輸入五個蝦皮帳號的評價星數，系統計算各帳滿意度及五帳加權總平均</p>
 
   <!-- 週次切換 -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
@@ -490,6 +501,7 @@ tr:last-child td{border-bottom:none;}
           <th><span class="acct-badge acc-B" style="margin:0;">帳號 B</span></th>
           <th><span class="acct-badge acc-C" style="margin:0;">帳號 C</span></th>
           <th><span class="acct-badge acc-D" style="margin:0;">帳號 D</span></th>
+          <th><span class="acct-badge acc-G" style="margin:0;">帳號 G</span></th>
         </tr>
       </thead>
       <tbody>
@@ -546,12 +558,12 @@ tr:last-child td{border-bottom:none;}
     </table>
   </div>
 
-  <!-- 四帳總平均 -->
+  <!-- 五帳總平均 -->
   <div class="sat-total-card">
     <div>
-      <div style="font-size:13px;color:#6b6b66;margin-bottom:4px;">四帳加權總平均滿意度</div>
+      <div style="font-size:13px;color:#6b6b66;margin-bottom:4px;">五帳加權總平均滿意度</div>
       <div class="sat-total-num" id="sat-overall">—</div>
-      <div style="font-size:12px;color:#888780;margin-top:4px;">計算方式：(四帳 4★+5★ 總數) ÷ 四帳總評價數</div>
+      <div style="font-size:12px;color:#888780;margin-top:4px;">計算方式：(五帳 4★+5★ 總數) ÷ 五帳總評價數</div>
       <div style="font-size:11px;color:#aaa;margin-top:2px;">總評價數：<span id="sat-grand-total">0</span> 則｜正面評價：<span id="sat-grand-pos">0</span> 則</div>
     </div>
     <div style="text-align:right;">
@@ -596,7 +608,7 @@ tr:last-child td{border-bottom:none;}
       <div class="kpi-card">
         <div class="name">訊息回覆率</div>
         <div class="meta">目標 100%｜每少1%扣1分｜權重15分</div>
-        <div class="krow"><span>四帳週平均回覆率</span><span id="kr-reply-pct" style="font-weight:500">—</span></div>
+        <div class="krow"><span>五帳週平均回覆率</span><span id="kr-reply-pct" style="font-weight:500">—</span></div>
         <div style="font-size:11px;color:#aaa;margin:4px 0 4px 0;" id="kr-reply-detail">—</div>
         <div class="krow"><span>達成率（目標 100%）</span><span id="kr-reply-ach" style="font-weight:500">—</span></div>
         <div class="krow"><span>原始分</span><span id="kr-reply-raw" class="pill pn">—</span></div>
@@ -605,7 +617,7 @@ tr:last-child td{border-bottom:none;}
       <div class="kpi-card">
         <div class="name">服務滿意度</div>
         <div class="meta">目標 99%｜每少2%扣5分｜權重15分</div>
-        <div class="krow"><span>四帳加權滿意度</span><span id="kr-sat-pct" style="font-weight:500">—</span></div>
+        <div class="krow"><span>五帳加權滿意度</span><span id="kr-sat-pct" style="font-weight:500">—</span></div>
         <div class="krow" style="margin-top:4px;"><span>達成率（目標 99%）</span><span id="kr-sat-ach" style="font-weight:500">—</span></div>
         <div class="krow"><span>原始分</span><span id="kr-sat-raw" class="pill pn">—</span></div>
         <div class="krow"><span>加權分（×15%）</span><span id="kr-sat-w" style="font-weight:500;color:#185FA5">—</span></div>
@@ -707,7 +719,7 @@ tr:last-child td{border-bottom:none;}
     <div class="kpi-grid" style="margin-bottom:1.5rem;">
       <div class="kpi-card">
         <div class="name">訊息回覆率</div>
-        <div class="meta">目標 100%｜四帳每週平均再平均</div>
+        <div class="meta">目標 100%｜五帳每週平均再平均</div>
         <div class="krow"><span>期間平均回覆率</span><span id="q-reply-pct" style="font-weight:500">—</span></div>
         <div class="krow" style="margin-top:4px;"><span>達成率（目標 100%）</span><span id="q-reply-ach" style="font-weight:500">—</span></div>
         <div class="krow"><span>原始分（參考）</span><span id="q-reply-raw" class="pill pn">—</span></div>
@@ -764,7 +776,7 @@ tr:last-child td{border-bottom:none;}
         <thead>
           <tr>
             <th>日期</th>
-            <th>四帳平均回覆率</th>
+            <th>五帳平均回覆率</th>
             <th>轉單率</th>
           </tr>
         </thead>
@@ -824,7 +836,7 @@ tr:last-child td{border-bottom:none;}
 
     <!-- 區間摘要 -->
     <div style="margin-top:1.5rem;padding:1rem 1.25rem;background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;">
-      <p class="sec" style="margin-bottom:8px;">四帳合計</p>
+      <p class="sec" style="margin-bottom:8px;">五帳合計</p>
       <div style="font-size:12px;color:#888780;line-height:1.7;" id="p-summary">—</div>
     </div>
   </div>
@@ -884,6 +896,50 @@ tr:last-child td{border-bottom:none;}
 <!-- ══════════════════════════════
      PAGE 8: 異常率追蹤
 ══════════════════════════════ -->
+<div class="page" id="page-shopee">
+  <h1 class="page-title">🔗 蝦皮 API 串接</h1>
+  <p class="page-sub">設定完成後可自動抓取各帳號的蝦皮店鋪績效數據</p>
+
+  <!-- Partner 設定 -->
+  <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+    <h3 style="margin:0 0 1rem;font-size:15px;font-weight:500;">Partner 設定</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div class="ig"><label>Partner ID</label><input type="number" id="sp-partner-id" placeholder="例：2037746"></div>
+      <div class="ig"><label>Partner Key</label><input type="password" id="sp-partner-key" placeholder="shpk..."></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="bp" onclick="spSavePartner()">儲存 Partner 設定</button>
+      <span id="sp-partner-status" style="font-size:12px;color:#888780;align-self:center;"></span>
+    </div>
+  </div>
+
+  <!-- 帳號授權 -->
+  <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+    <h3 style="margin:0 0 0.5rem;font-size:15px;font-weight:500;">帳號授權</h3>
+    <p style="font-size:12px;color:#888780;margin:0 0 1rem;">點「授權」後登入對應的蝦皮賣家帳號，授權完成會自動回到此頁並儲存 Token</p>
+    <div id="sp-acct-list"></div>
+  </div>
+
+  <!-- 同步數據 -->
+  <div style="background:#fff;border:.5px solid rgba(0,0,0,.11);border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+    <h3 style="margin:0 0 0.5rem;font-size:15px;font-weight:500;">同步蝦皮數據</h3>
+    <p style="font-size:12px;color:#888780;margin:0 0 1rem;">從蝦皮抓取各帳號目前週期的回覆率與滿意度，並自動填入今日記錄</p>
+    <button class="bp" onclick="spSyncAll()" id="sp-sync-btn">🔄 同步所有帳號數據</button>
+    <div id="sp-sync-result" style="margin-top:1rem;font-size:13px;"></div>
+  </div>
+
+  <!-- 說明 -->
+  <div style="background:#f5f4f0;border-radius:10px;padding:1rem;font-size:12px;color:#6b6b66;line-height:1.7;">
+    <b>使用說明：</b><br>
+    1. 填入 Partner ID 和 Partner Key 並儲存<br>
+    2. 對每個帳號點「授權」，用對應的蝦皮賣家帳號登入<br>
+    3. 授權後 Token 自動儲存在此瀏覽器<br>
+    4. 每次要更新數據時點「同步所有帳號數據」<br>
+    <br>
+    <b>注意：</b>Token 有效期 365 天，到期需重新授權。Partner Key 和 Token 只存在此瀏覽器，不上傳至伺服器。
+  </div>
+</div>
+
 <div class="page" id="page-anomaly">
   <h1 class="page-title">異常率追蹤</h1>
   <p class="page-sub">追蹤商品錯誤、瑕疵與其他問題的發生率，分「登記日期」與「出貨日期」雙視角</p>
@@ -1009,7 +1065,7 @@ const LD   = () => window._dailyCache || [];
 const LH   = () => window._histCache  || [];
 const LSat = () => window._satCache;
 
-const ACCTS = ['A','B','C','D'];
+const ACCTS = ['A','B','C','D','G'];
 
 // ══════ 國定假日工具 ══════
 // 內建台灣國定假日清單(含補假調整),2025-2026
@@ -1528,7 +1584,7 @@ function renderSatDelta(currentByAcct){
     ${acctHtml}
     <div style="margin-top:12px;padding:10px 12px;background:#f5f4f0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <div>
-        <span style="font-size:12px;color:#6b6b66;">本週新增四帳總評價：</span>
+        <span style="font-size:12px;color:#6b6b66;">本週新增五帳總評價：</span>
         <span style="font-weight:500;">${totalAddAll} 則</span>
         <span style="font-size:11px;color:#aaa;margin-left:6px;">（4★+5★：${totalPosAdd} 則）</span>
       </div>
@@ -2751,7 +2807,7 @@ function renderQuarter(){
   else {
     tEmpty.style.display='none';
     tbody.innerHTML = dailySorted.map(r => {
-      // 四帳當日平均回覆率
+      // 五帳當日平均回覆率
       const dayReplies = ACCTS.map(a => r['rr'+a]).filter(v => v!==null && v!==undefined);
       const dReply = dayReplies.length>0 ? dayReplies.reduce((s,v)=>s+v,0)/dayReplies.length : null;
       // 當日轉單率
@@ -2910,7 +2966,7 @@ function renderPlatform(){
   if(!hasAny) return;
 
   // ── 各帳號計算 ──
-  const acctNames = {A:'帳號 A', B:'帳號 B', C:'帳號 C', D:'帳號 D'};
+  const acctNames = {A:'帳號 A', B:'帳號 B', C:'帳號 C', D:'帳號 D', G:'帳號 G'};
   const cardsHtml = ACCTS.map(a => {
     // 回覆率(該帳號區間內每日平均)
     const replyVals = daily.map(r=>r['rr'+a]).filter(v=>v!==null && v!==undefined);
@@ -2955,7 +3011,7 @@ function renderPlatform(){
   const allSal = daily.reduce((s,r)=>s+(r.salA||0)+(r.salB||0)+(r.salC||0)+(r.salD||0),0);
   const allOrder = allRep>0 ? allBuy/allRep*100 : null;
 
-  // 四帳合計滿意度(差值合計)
+  // 五帳合計滿意度(差值合計)
   let totalNew=0, totalPos=0, allCumTotal=0, allCumPos=0;
   ACCTS.forEach(a=>{
     const s = calcPlatformSat(a, start, end);
@@ -2984,10 +3040,10 @@ function renderPlatform(){
   }
 
   document.getElementById('p-summary').innerHTML = `
-    <div>四帳平均回覆率：<b style="color:#1a1a18;">${replyAll!==null?replyAll.toFixed(2)+'%':'—'}</b></div>
-    <div>四帳合計轉單率：<b style="color:#1a1a18;">${allOrder!==null?allOrder.toFixed(2)+'%':'—'}</b>（總回覆 ${allRep} 則，總買家 ${allBuy} 人）</div>
-    <div>四帳合計銷售額：<b style="color:#1a1a18;">${allSal>0?'$'+allSal.toLocaleString():'—'}</b></div>
-    <div>四帳合計滿意度：<b style="color:#1a1a18;">${satAllPct!==null?satAllPct.toFixed(2)+'%':'—'}</b>${satAllNote?'<span style="color:#aaa;">'+satAllNote+'</span>':''}</div>
+    <div>五帳平均回覆率：<b style="color:#1a1a18;">${replyAll!==null?replyAll.toFixed(2)+'%':'—'}</b></div>
+    <div>五帳合計轉單率：<b style="color:#1a1a18;">${allOrder!==null?allOrder.toFixed(2)+'%':'—'}</b>（總回覆 ${allRep} 則，總買家 ${allBuy} 人）</div>
+    <div>五帳合計銷售額：<b style="color:#1a1a18;">${allSal>0?'$'+allSal.toLocaleString():'—'}</b></div>
+    <div>五帳合計滿意度：<b style="color:#1a1a18;">${satAllPct!==null?satAllPct.toFixed(2)+'%':'—'}</b>${satAllNote?'<span style="color:#aaa;">'+satAllNote+'</span>':''}</div>
   `;
 }
 
@@ -3102,5 +3158,218 @@ function waitForFb(){
 }
 waitForFb().then(init);
 </script>
+
+<script>
+// ══════ 蝦皮 API 串接 ══════
+const SP_PARTNER_ID_DEFAULT = 2037746;
+const SHOPEE_API_BASE = 'https://partner.shopeemobile.com';
+
+function spGetConfig(){
+  try {
+    return JSON.parse(localStorage.getItem('shopeeConfig') || '{}');
+  } catch(e){ return {}; }
+}
+function spSetConfig(obj){
+  try { localStorage.setItem('shopeeConfig', JSON.stringify(obj)); } catch(e){}
+}
+
+function spSavePartner(){
+  const pid = document.getElementById('sp-partner-id').value.trim();
+  const pkey = document.getElementById('sp-partner-key').value.trim();
+  if(!pid || !pkey){ alert('請填入 Partner ID 和 Partner Key'); return; }
+  const cfg = spGetConfig();
+  cfg.partnerId = parseInt(pid);
+  cfg.partnerKey = pkey;
+  spSetConfig(cfg);
+  document.getElementById('sp-partner-status').textContent = '✅ 已儲存';
+  spRenderAcctList();
+}
+
+function spRenderAcctList(){
+  const cfg = spGetConfig();
+  const tokens = cfg.tokens || {};
+  const container = document.getElementById('sp-acct-list');
+  if(!container) return;
+  container.innerHTML = ACCTS.map(a => {
+    const tok = tokens[a];
+    const hasToken = tok && tok.accessToken;
+    const expiry = tok && tok.expiry ? new Date(tok.expiry*1000).toLocaleDateString('zh-TW') : '—';
+    const shopId = tok && tok.shopId ? tok.shopId : '—';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:.5px solid rgba(0,0,0,.07);flex-wrap:wrap;">
+      <span class="acct-badge acc-${a}" style="margin:0;min-width:60px;text-align:center;">帳號 ${a}</span>
+      <span style="font-size:12px;color:${hasToken?'#2d7a2d':'#aaa'};">${hasToken?'✅ 已授權':'⬜ 未授權'}</span>
+      ${hasToken?`<span style="font-size:11px;color:#aaa;">Shop ID: ${shopId} ｜ 到期: ${expiry}</span>`:''}
+      <button class="bsm" style="margin-left:auto;" onclick="spAuthorize('${a}')">🔑 授權</button>
+      ${hasToken?`<button class="bsm" style="color:#c00;" onclick="spRevokeToken('${a}')">移除</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function spAuthorize(acct){
+  const cfg = spGetConfig();
+  if(!cfg.partnerId || !cfg.partnerKey){
+    alert('請先填入並儲存 Partner ID 和 Partner Key');
+    return;
+  }
+  // 把待授權帳號存起來，callback 後知道是哪個帳號
+  localStorage.setItem('shopeeAuthPending', acct);
+  
+  const redirectUrl = encodeURIComponent(window.location.href.split('?')[0]);
+  const authUrl = `${SHOPEE_API_BASE}/api/v2/shop/auth_partner?partner_id=${cfg.partnerId}&redirect=${redirectUrl}&timestamp=${Math.floor(Date.now()/1000)}`;
+  window.location.href = authUrl;
+}
+
+function spRevokeToken(acct){
+  if(!confirm(`確定要移除帳號 ${acct} 的授權嗎？`)) return;
+  const cfg = spGetConfig();
+  if(cfg.tokens) delete cfg.tokens[acct];
+  spSetConfig(cfg);
+  spRenderAcctList();
+}
+
+async function spExchangeToken(code, shopId){
+  const cfg = spGetConfig();
+  const partnerId = cfg.partnerId;
+  const partnerKey = cfg.partnerKey;
+  
+  // 產生簽章 (用 Web Crypto API)
+  const timestamp = Math.floor(Date.now()/1000);
+  const baseStr = `${partnerId}/api/v2/auth/token/get${timestamp}`;
+  const enc = new TextEncoder();
+  const keyData = enc.encode(partnerKey);
+  const msgData = enc.encode(baseStr);
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+  const sign = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  
+  const url = `${SHOPEE_API_BASE}/api/v2/auth/token/get?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}`;
+  const body = JSON.stringify({ code, shop_id: parseInt(shopId), partner_id: partnerId });
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body
+  });
+  return await res.json();
+}
+
+async function spHandleCallback(){
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const shopId = params.get('shop_id');
+  const pendingAcct = localStorage.getItem('shopeeAuthPending');
+  
+  if(!code || !shopId || !pendingAcct) return;
+  
+  // 清除網址參數
+  window.history.replaceState({}, '', window.location.pathname);
+  localStorage.removeItem('shopeeAuthPending');
+  
+  // 切換到串接頁面
+  const btn = document.querySelector('[onclick="showPage('shopee',this)"]');
+  if(btn) showPage('shopee', btn);
+  
+  document.getElementById('sp-partner-status').textContent = '🔄 正在換取 Token...';
+  
+  try {
+    const result = await spExchangeToken(code, shopId);
+    if(result.access_token){
+      const cfg = spGetConfig();
+      if(!cfg.tokens) cfg.tokens = {};
+      cfg.tokens[pendingAcct] = {
+        accessToken: result.access_token,
+        refreshToken: result.refresh_token,
+        shopId: parseInt(shopId),
+        expiry: Math.floor(Date.now()/1000) + (365*24*3600)
+      };
+      spSetConfig(cfg);
+      document.getElementById('sp-partner-status').textContent = `✅ 帳號 ${pendingAcct} 授權成功！`;
+      spRenderAcctList();
+    } else {
+      document.getElementById('sp-partner-status').textContent = '❌ 換取 Token 失敗：' + (result.message || JSON.stringify(result));
+    }
+  } catch(e) {
+    document.getElementById('sp-partner-status').textContent = '❌ 錯誤：' + e.message;
+  }
+}
+
+async function spGetShopPerformance(partnerId, partnerKey, shopId, accessToken){
+  const timestamp = Math.floor(Date.now()/1000);
+  const baseStr = `${partnerId}/api/v2/account_health/get_shop_performance${timestamp}${accessToken}${shopId}`;
+  const enc = new TextEncoder();
+  const keyData = enc.encode(partnerKey);
+  const msgData = enc.encode(baseStr);
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+  const sign = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  
+  const url = `${SHOPEE_API_BASE}/api/v2/account_health/get_shop_performance?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+async function spSyncAll(){
+  const cfg = spGetConfig();
+  if(!cfg.partnerId || !cfg.partnerKey){ alert('請先設定 Partner ID 和 Partner Key'); return; }
+  const tokens = cfg.tokens || {};
+  
+  const btn = document.getElementById('sp-sync-btn');
+  const result = document.getElementById('sp-sync-result');
+  btn.disabled = true;
+  btn.textContent = '🔄 同步中...';
+  result.innerHTML = '';
+  
+  const lines = [];
+  for(const acct of ACCTS){
+    const tok = tokens[acct];
+    if(!tok || !tok.accessToken){
+      lines.push(`<div style="color:#aaa;">帳號 ${acct}：未授權，跳過</div>`);
+      continue;
+    }
+    try {
+      const data = await spGetShopPerformance(cfg.partnerId, cfg.partnerKey, tok.shopId, tok.accessToken);
+      if(data.response && data.response.metric_list){
+        const metrics = data.response.metric_list;
+        // metric_id 11 = Chat Response Rate, metric_id 95 = Customer Satisfaction
+        const chatRate = metrics.find(m => m.metric_id === 11);
+        const satisfaction = metrics.find(m => m.metric_id === 95);
+        
+        const rr = chatRate ? (chatRate.current_period * 100).toFixed(2) : null;
+        const sat = satisfaction ? (satisfaction.current_period * 100).toFixed(2) : null;
+        
+        lines.push(`<div style="color:#2d7a2d;">帳號 ${acct}：回覆率 ${rr ? rr+'%' : '—'}，滿意度 ${sat ? sat+'%' : '—'}</div>`);
+        
+        // 自動填入回覆率欄位
+        if(rr !== null){
+          const rrInput = document.getElementById('rr-' + acct);
+          if(rrInput){ rrInput.value = rr; }
+        }
+      } else {
+        lines.push(`<div style="color:#c00;">帳號 ${acct}：${data.message || '取得資料失敗'}</div>`);
+      }
+    } catch(e){
+      lines.push(`<div style="color:#c00;">帳號 ${acct}：錯誤 ${e.message}</div>`);
+    }
+  }
+  
+  result.innerHTML = lines.join('');
+  btn.disabled = false;
+  btn.textContent = '🔄 同步所有帳號數據';
+}
+
+// 頁面載入時初始化
+document.addEventListener('DOMContentLoaded', function(){
+  // 處理 OAuth callback
+  spHandleCallback();
+  
+  // 載入已存的 Partner 設定
+  const cfg = spGetConfig();
+  if(cfg.partnerId) document.getElementById('sp-partner-id') && (document.getElementById('sp-partner-id').value = cfg.partnerId);
+  
+  // 渲染帳號列表
+  spRenderAcctList();
+});
+</script>
+
 </body>
 </html>
