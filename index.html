@@ -3318,7 +3318,7 @@ async function spRefreshToken(partnerId, partnerKey, shopId, refreshToken){
   const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
   const sign = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   const url = `${SHOPEE_PROXY_BASE}/api/shopee/auth/access_token/get?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}`;
-  const body = { shop_id: shopId, refresh_token: refreshToken_ };
+  const body = { partner_id: partnerId, shop_id: shopId, refresh_token: refreshToken_ };
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   return await res.json();
 }
