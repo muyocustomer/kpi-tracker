@@ -264,7 +264,7 @@ tr:last-child td{border-bottom:none;}
   <button class="nav-tab" onclick="showPage('weekly',this)">每週 KPI</button>
   <button class="nav-tab" onclick="showPage('quarter',this)">期間統計</button>
   <button class="nav-tab" onclick="showPage('platform',this)">平台分析</button>
-  <button class="nav-tab" onclick="showPage('trend',this)">歷週趨勢</button>
+  <button class="nav-tab" onclick="showPage('trend',this)">歷月趨勢</button>
   <button class="nav-tab" onclick="showPage('anomaly',this)">異常率追蹤</button>
   <button class="nav-tab" id="shopee-tab" onclick="showPage('shopee',this)">🔗 蝦皮串接</button>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;padding:0 0.5rem;">
@@ -854,8 +854,8 @@ tr:last-child td{border-bottom:none;}
      PAGE 4: 歷週趨勢
 ══════════════════════════════ -->
 <div class="page" id="page-trend">
-  <h1 class="page-title">歷週趨勢</h1>
-  <p class="page-sub">已儲存的每週 KPI 分數比較</p>
+  <h1 class="page-title">歷月趨勢</h1>
+  <p class="page-sub">每月 KPI 分數平均比較（同月各週平均）</p>
   <div id="trend-empty" class="empty">尚無儲存記錄，請到「每週KPI」頁面計算並儲存</div>
   <div id="trend-wrap" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:0.75rem;">
@@ -874,25 +874,25 @@ tr:last-child td{border-bottom:none;}
         <canvas id="trendChart" role="img" aria-label="歷週轉單率趨勢">歷週轉單率趨勢</canvas>
       </div>
       <div style="margin-top:8px;font-size:11px;color:#888780;text-align:center;">
-        圖表顯示歷週「<b style="color:#1B6B7A;">回覆轉單率</b>」實際百分比，目標 13%
+        圖表顯示歷月「<b style="color:#1B6B7A;">回覆轉單率</b>」月平均百分比，目標 13%
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <p class="sec" style="margin:0">歷週記錄明細</p>
+      <p class="sec" style="margin:0">歷月記錄明細</p>
       <button class="bd bsm" onclick="clearAllKPI()">清除全部記錄</button>
     </div>
     <div class="table-card">
       <table>
         <thead>
           <tr>
-            <th>週次</th>
+            <th>月份</th>
+            <th>週數</th>
             <th>回覆率分</th>
             <th>滿意度分</th>
             <th>轉單率分</th>
             <th>留任率分</th>
             <th>加權總分</th>
             <th>等級</th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="trend-tbody"></tbody>
@@ -1807,44 +1807,62 @@ function calcWeekdayOrderPctForWeek(monStr){
 
 function renderTrend(){
   const allArr=LH();
-  const arr=allArr.slice(-12); // 只顯示最近 12 週
   const empty=document.getElementById('trend-empty');
   const wrap=document.getElementById('trend-wrap');
-  if(arr.length===0){empty.style.display='block';wrap.style.display='none';return;}
+  if(allArr.length===0){empty.style.display='block';wrap.style.display='none';return;}
   empty.style.display='none';wrap.style.display='block';
-  const fmt=v=>v!==null?v.toFixed(2):'—';
-  document.getElementById('trend-tbody').innerHTML=arr.map((h,i)=>{
-    const globalIdx=allArr.length-arr.length+i;
-    const[g]=gradeOf(h.weighted);
+
+  // ── 依月分群（用 monStr 前 7 碼 "YYYY-MM"）──
+  const monthMap = new Map();
+  allArr.forEach(h => {
+    const ym = (h.monStr||h.wk||'').slice(0,7);
+    if(!ym) return;
+    if(!monthMap.has(ym)) monthMap.set(ym, []);
+    monthMap.get(ym).push(h);
+  });
+  const months = [...monthMap.keys()].sort();
+  const displayMonths = months.slice(-12);
+
+  const avg = (arr, field) => {
+    const vals = arr.map(h=>h[field]).filter(v=>v!==null && v!==undefined && !isNaN(v));
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  };
+  const monthData = displayMonths.map(ym => {
+    const rows = monthMap.get(ym);
+    return { ym, rows, s1:avg(rows,'s1'), s2:avg(rows,'s2'), s3:avg(rows,'s3'), s4:avg(rows,'s4'), weighted:avg(rows,'weighted'), count:rows.length };
+  });
+
+  const fmt=v=>v!=null?v.toFixed(2):'—';
+  document.getElementById('trend-tbody').innerHTML=monthData.map(m=>{
+    const[g]=gradeOf(m.weighted||0);
+    const [y,mo]=m.ym.split('-');
     return`<tr>
-      <td style="font-weight:500">${h.label}</td>
-      <td>${fmt(h.s1)}</td><td>${fmt(h.s2)}</td><td>${fmt(h.s3)}</td><td>${fmt(h.s4)}</td>
-      <td style="font-weight:500">${h.weighted.toFixed(2)}</td><td>${g}</td>
-      <td><button class="del-btn" onclick="deleteTrendRow(${globalIdx})">✕</button></td>
+      <td style="font-weight:500">${y}年${mo}月</td>
+      <td style="color:#888;font-size:12px;">${m.count}週</td>
+      <td>${fmt(m.s1)}</td><td>${fmt(m.s2)}</td><td>${fmt(m.s3)}</td><td>${fmt(m.s4)}</td>
+      <td style="font-weight:500">${m.weighted!=null?m.weighted.toFixed(2):'—'}</td><td>${g}</td>
     </tr>`;
   }).join('');
+
   const ctx=document.getElementById('trendChart');
   if(trendChart)trendChart.destroy();
 
-  // 同步 checkbox 狀態
   const cb = document.getElementById('trend-weekday-only');
   if(cb) cb.checked = getWeekdayOnly('trend');
   const showWeekday = getWeekdayOnly('trend');
   document.getElementById('trend-legend-row').style.display = showWeekday ? 'flex' : 'none';
 
-  // 含假日(已儲存):從 s3 反推
-  const orderPcts = arr.map(h => h.s3!==null ? +(13 + (h.s3-100)/7.69).toFixed(2) : null);
-  // 平日轉單率:對每週重新計算
-  const weekdayPcts = showWeekday ? arr.map(h => calcWeekdayOrderPctForWeek(h.monStr)) : [];
+  const orderPcts = monthData.map(m => m.s3!=null ? +(13 + (m.s3-100)/7.69).toFixed(2) : null);
+  const weekdayPcts = showWeekday ? monthData.map(m => {
+    const vals = m.rows.map(h=>calcWeekdayOrderPctForWeek(h.monStr)).filter(v=>v!=null);
+    return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : null;
+  }) : [];
 
-  // 計算 Y 軸範圍
-  const allValid = [...orderPcts, ...weekdayPcts].filter(v=>v!==null);
-  const dataMax = allValid.length>0 ? Math.max(...allValid) : 20;
+  const allValid = [...orderPcts, ...weekdayPcts].filter(v=>v!=null);
   const dataMin = allValid.length>0 ? Math.min(...allValid) : 5;
   const yMax = 16;
   const yMin = Math.max(0, Math.floor(dataMin-1));
 
-  // 目標線 plugin
   const targetLinePlugin = {
     id: 'targetLine',
     afterDatasetsDraw(chart){
@@ -1868,7 +1886,6 @@ function renderTrend(){
     }
   };
 
-  // 點上顯示數值 plugin (兩條線都顯示時,標籤錯開避免重疊)
   const pointValuePlugin = {
     id: 'pointValueLabel',
     afterDatasetsDraw(chart){
@@ -1876,34 +1893,23 @@ function renderTrend(){
       ctx.save();
       ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-
       chart.data.datasets.forEach((ds, dsIdx) => {
         if(!chart.isDatasetVisible(dsIdx)) return;
         const meta = chart.getDatasetMeta(dsIdx);
         meta.data.forEach((point, idx)=>{
           const v = ds.data[idx];
-          if(v===null || v===undefined) return;
+          if(v==null) return;
           const txt = v.toFixed(2)+'%';
           const x = point.x;
-          // 第1條上方偏移22px，第2條下方偏移22px，確保不重疊
           let y, baseline;
-          // dsIdx===0(含假日)標籤在下方，dsIdx===1(平日)標籤在上方
-          if(dsIdx===0){
-            y = point.y + 32;
-            baseline = 'top';
-          } else {
-            y = point.y - 32;
-            baseline = 'bottom';
-          }
+          if(dsIdx===0){ y=point.y+32; baseline='top'; }
+          else { y=point.y-32; baseline='bottom'; }
           ctx.textBaseline = baseline;
-          // 白色背景框
           const tw = ctx.measureText(txt).width;
-          const bx = x - tw/2 - 4;
-          const by = baseline==='bottom' ? y - 14 : y;
+          const bx = x-tw/2-4;
+          const by = baseline==='bottom' ? y-14 : y;
           ctx.fillStyle = 'rgba(255,255,255,0.95)';
           ctx.fillRect(bx, by, tw+8, 15);
-          // 文字（顏色固定對應自己的線）
           ctx.fillStyle = ds.borderColor;
           ctx.fillText(txt, x, y);
         });
@@ -1912,31 +1918,17 @@ function renderTrend(){
     }
   };
 
-  // 兩條線的設定
-  const datasets = [
-    {
-      label:'含假日轉單率',
-      data:orderPcts,
-      borderColor:'#1B6B7A',  // 海青色
-      backgroundColor:'rgba(27,107,122,0.06)',
-      tension:0.3,
-      borderWidth:2.5,
-      pointRadius:5,
-      pointBackgroundColor:'#1B6B7A',
-      fill: !showWeekday  // 單線時填色;兩條線時不填色比較乾淨
-    }
-  ];
+  const datasets = [{
+    label:'含假日轉單率', data:orderPcts,
+    borderColor:'#1B6B7A', backgroundColor:'rgba(27,107,122,0.06)',
+    tension:0.3, borderWidth:2.5, pointRadius:5, pointBackgroundColor:'#1B6B7A',
+    fill: !showWeekday
+  }];
   if(showWeekday){
     datasets.push({
-      label:'平日轉單率',
-      data:weekdayPcts,
-      borderColor:'#8B2F3F',  // 暗紅色
-      backgroundColor:'rgba(139,47,63,0.06)',
-      tension:0.3,
-      borderWidth:2.5,
-      pointRadius:5,
-      pointBackgroundColor:'#8B2F3F',
-      fill:false
+      label:'平日轉單率', data:weekdayPcts,
+      borderColor:'#8B2F3F', backgroundColor:'rgba(139,47,63,0.06)',
+      tension:0.3, borderWidth:2.5, pointRadius:5, pointBackgroundColor:'#8B2F3F', fill:false
     });
   }
 
@@ -1944,38 +1936,22 @@ function renderTrend(){
     type:'line',
     plugins:[targetLinePlugin, pointValuePlugin],
     data:{
-      labels:arr.map(h=>h.wk),
+      labels:monthData.map(m=>{ const [y,mo]=m.ym.split('-'); return y+'年'+mo+'月'; }),
       datasets
     },
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
-        tooltip:{
-          mode:'index',
-          intersect:false,
-          callbacks:{
-            label:(c)=>c.dataset.label+'：'+(c.parsed.y!==null?c.parsed.y.toFixed(2)+'%':'—')
-          }
-        }
+        tooltip:{ mode:'index', intersect:false, callbacks:{ label:(c)=>c.dataset.label+'：'+(c.parsed.y!=null?c.parsed.y.toFixed(2)+'%':'—') } }
       },
       scales:{
-        y:{
-          min:yMin,
-          max:yMax,
-          ticks:{
-            font:{size:12},
-            stepSize:1,
-            callback:(v)=>v+'%'
-          },
-          grid:{color:'rgba(0,0,0,0.07)'}
-        },
+        y:{ min:yMin, max:yMax, ticks:{font:{size:12},stepSize:1,callback:(v)=>v+'%'}, grid:{color:'rgba(0,0,0,0.07)'} },
         x:{ticks:{font:{size:12},autoSkip:false}}
       }
     }
   });
 }
-
 async function deleteTrendRow(idx){
   if(!confirm('確定刪除這週的KPI記錄？'))return;
   const wk=window._histCache[idx]?.wk;
